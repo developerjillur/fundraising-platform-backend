@@ -6,6 +6,10 @@ WORKDIR /app
 # Enable standalone mode via env var or it can be set in next.config.ts
 ENV NEXT_PRIVATE_STANDALONE=true
 
+# Add ARG and ENV so it's baked into the Next.js bundle during build
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 COPY package*.json ./
 RUN npm ci
 
