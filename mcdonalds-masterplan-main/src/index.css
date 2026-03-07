@@ -1,0 +1,348 @@
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Space+Mono:wght@400;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ─── LIGHT MODE ─── */
+  :root {
+    --background: 38 30% 96%;
+    --foreground: 25 20% 10%;
+
+    --card: 38 22% 93%;
+    --card-foreground: 25 20% 10%;
+
+    --popover: 38 22% 93%;
+    --popover-foreground: 25 20% 10%;
+
+    --primary: 38 100% 42%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 36 18% 89%;
+    --secondary-foreground: 25 20% 10%;
+
+    --muted: 36 14% 86%;
+    --muted-foreground: 25 10% 40%;
+
+    --accent: 5 87% 48%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 36 16% 82%;
+    --input: 36 16% 82%;
+    --ring: 38 100% 42%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 38 22% 93%;
+    --sidebar-foreground: 25 20% 10%;
+    --sidebar-primary: 38 100% 42%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 36 14% 86%;
+    --sidebar-accent-foreground: 25 20% 10%;
+    --sidebar-border: 36 16% 82%;
+    --sidebar-ring: 38 100% 42%;
+
+    /* Custom tokens */
+    --gold: 38 100% 42%;
+    --gold-light: 42 100% 55%;
+    --gold-dark: 36 100% 30%;
+    --gold-dim: 38 60% 50%;
+    --mcred: 5 87% 48%;
+    --mcred-hover: 5 100% 43%;
+    --mcred-dim: 5 50% 55%;
+    --surface-elevated: 36 18% 91%;
+    --green-live: 142 71% 38%;
+
+    /* Light mode section backgrounds */
+    --section-alt: 36 22% 93%;
+    --section-warm: 34 28% 95%;
+    --hero-overlay-strength: 0.92;
+
+    /* Bold section backgrounds (light mode) */
+    --section-bold-bg: 5 72% 38%;
+    --section-bold-fg: 0 0% 100%;
+    --section-bold-muted: 0 0% 100%;
+    --section-footer-bg: 20 10% 10%;
+    --section-footer-fg: 0 0% 92%;
+    --fundraiser-bar-from: 18 100% 52%;
+    --fundraiser-bar-to: 5 87% 48%;
+  }
+
+  /* ─── DARK MODE ─── */
+  .dark {
+    --background: 0 0% 4%;
+    --foreground: 0 0% 96%;
+
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 96%;
+
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 96%;
+
+    --primary: 43 100% 50%;
+    --primary-foreground: 0 0% 4%;
+
+    --secondary: 0 0% 8%;
+    --secondary-foreground: 0 0% 96%;
+
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 55%;
+
+    --accent: 5 87% 48%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 0 0% 14%;
+    --input: 0 0% 14%;
+    --ring: 43 100% 50%;
+
+    --sidebar-background: 0 0% 7%;
+    --sidebar-foreground: 0 0% 96%;
+    --sidebar-primary: 43 100% 50%;
+    --sidebar-primary-foreground: 0 0% 4%;
+    --sidebar-accent: 0 0% 12%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 0 0% 14%;
+    --sidebar-ring: 43 100% 50%;
+
+    /* Custom tokens */
+    --gold: 43 100% 50%;
+    --gold-light: 45 100% 63%;
+    --gold-dark: 40 100% 39%;
+    --gold-dim: 43 80% 35%;
+    --mcred: 5 87% 48%;
+    --mcred-hover: 5 100% 56%;
+    --mcred-dim: 5 70% 35%;
+    --surface-elevated: 0 0% 13%;
+    --green-live: 142 71% 45%;
+
+    --section-alt: 0 0% 8%;
+    --section-warm: 0 0% 6%;
+    --hero-overlay-strength: 0.95;
+
+    /* Bold section backgrounds (dark mode — keep dark aesthetic) */
+    --section-bold-bg: 0 0% 6%;
+    --section-bold-fg: 0 0% 96%;
+    --section-bold-muted: 0 0% 55%;
+    --section-footer-bg: 0 0% 4%;
+    --section-footer-fg: 0 0% 70%;
+    --fundraiser-bar-from: 43 100% 50%;
+    --fundraiser-bar-to: 38 100% 42%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: 'Oswald', sans-serif;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+}
+
+@layer utilities {
+  .font-mono-num {
+    font-family: 'Space Mono', monospace;
+  }
+
+  .text-gradient-gold {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(var(--gold-light)), hsl(var(--gold)), hsl(var(--gold-dark)));
+  }
+
+  .text-gradient-red {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(5 87% 55%), hsl(5 87% 45%));
+  }
+
+  .glow-gold {
+    box-shadow: 0 0 40px hsl(var(--gold) / 0.15), 0 0 80px hsl(var(--gold) / 0.08);
+  }
+
+  .glow-red {
+    box-shadow: 0 0 30px hsl(var(--mcred) / 0.3), 0 0 60px hsl(var(--mcred) / 0.15);
+  }
+
+  .glass-card {
+    @apply border border-border backdrop-blur-xl;
+    background: hsl(var(--card) / 0.7);
+    box-shadow: 0 1px 3px hsl(var(--foreground) / 0.04), 0 4px 16px hsl(var(--foreground) / 0.03);
+  }
+
+  .dark .glass-card {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: none;
+  }
+
+  /* Light mode section patterns */
+  .section-alt {
+    background: hsl(var(--section-alt));
+  }
+
+  .section-warm {
+    background: hsl(var(--section-warm));
+  }
+
+  /* Subtle warm noise texture for light mode */
+  :root .section-textured {
+    background-image:
+      radial-gradient(ellipse 120% 80% at 50% 0%, hsl(var(--gold) / 0.04) 0%, transparent 60%),
+      radial-gradient(ellipse 100% 60% at 50% 100%, hsl(var(--mcred) / 0.02) 0%, transparent 50%);
+  }
+  .dark .section-textured {
+    background-image: none;
+  }
+
+  /* Warm divider between sections */
+  .section-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent 5%, hsl(var(--gold) / 0.15) 30%, hsl(var(--gold) / 0.25) 50%, hsl(var(--gold) / 0.15) 70%, transparent 95%);
+  }
+  .dark .section-divider {
+    background: linear-gradient(90deg, transparent 5%, hsl(var(--border)) 50%, transparent 95%);
+  }
+
+  /* Grand Prize section — light mode warm bg, dark mode bold bg */
+  .grand-prize-section {
+    background: #fff7eb;
+    color: hsl(var(--foreground));
+  }
+  .grand-prize-section .gp-card {
+    background: hsl(var(--card) / 0.7);
+    border-color: hsl(var(--border));
+  }
+  .grand-prize-section .gp-text { color: hsl(var(--foreground)); }
+  .grand-prize-section .gp-text-muted { color: hsl(var(--muted-foreground)); }
+  .grand-prize-section .gp-icon-circle {
+    background: hsl(var(--primary) / 0.12);
+  }
+  .grand-prize-section .gp-icon-circle svg { color: hsl(var(--primary)); }
+
+  .dark .grand-prize-section {
+    background: hsl(var(--section-bold-bg));
+    color: white;
+  }
+  .dark .grand-prize-section .gp-card {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.15);
+  }
+  .dark .grand-prize-section .gp-text { color: white; }
+  .dark .grand-prize-section .gp-text-muted { color: rgba(255,255,255,0.6); }
+  .dark .grand-prize-section .gp-icon-circle {
+    background: rgba(255,255,255,0.12);
+  }
+  .dark .grand-prize-section .gp-icon-circle svg { color: white; }
+
+  /* How It Works section — warm bg in light mode only */
+  .how-it-works-section {
+    background: #fff7eb;
+  }
+  .dark .how-it-works-section {
+    background: hsl(var(--background));
+  }
+
+  /* Countdown section — warm gradient in light mode, bold bg in dark */
+  .countdown-section {
+    background: linear-gradient(135deg, #e8643a 0%, #d4883c 50%, #e2a645 100%);
+    color: white;
+  }
+  .countdown-section .cd-card {
+    background: rgba(255,255,255,0.15);
+    border-color: rgba(255,255,255,0.2);
+  }
+  .dark .countdown-section {
+    background: hsl(var(--section-bold-bg));
+  }
+  .dark .countdown-section .cd-card {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.15);
+  }
+
+  .btn-red {
+    @apply px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300;
+    background: hsl(var(--mcred));
+    color: #fff;
+    box-shadow: 0 0 20px hsl(var(--mcred) / 0.3);
+  }
+  .btn-red:hover {
+    background: hsl(var(--mcred-hover));
+    box-shadow: 0 0 40px hsl(var(--mcred) / 0.5);
+    transform: translateY(-1px);
+  }
+
+  .animate-pulse-red {
+    animation: pulse-red 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse-red {
+    0%, 100% { box-shadow: 0 0 20px hsl(var(--mcred) / 0.3); }
+    50% { box-shadow: 0 0 50px hsl(var(--mcred) / 0.5), 0 0 100px hsl(var(--mcred) / 0.15); }
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 20px hsl(var(--gold) / 0.2); }
+    50% { box-shadow: 0 0 60px hsl(var(--gold) / 0.4), 0 0 120px hsl(var(--gold) / 0.1); }
+  }
+
+  .animate-float {
+    animation: float 4s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2.5s linear infinite;
+    background-size: 200% 100%;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .live-dot {
+    @apply inline-block w-2.5 h-2.5 rounded-full;
+    background: hsl(var(--green-live));
+    animation: live-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes live-pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 hsl(var(--green-live) / 0.4); }
+    50% { opacity: 0.7; box-shadow: 0 0 0 6px hsl(var(--green-live) / 0); }
+  }
+
+  @keyframes count-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-count-up {
+    animation: count-up 0.6s ease-out;
+  }
+}

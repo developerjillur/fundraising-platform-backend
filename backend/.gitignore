@@ -1,0 +1,34 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# Production
+/dist
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Uploads (user-generated content)
+/uploads/photos/*
+!/uploads/photos/.gitkeep
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Coverage
+/coverage
+uploads/screenshots/

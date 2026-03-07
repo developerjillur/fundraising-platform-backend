@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Build output
+backend/dist/
+mcdonalds-masterplan-main/dist/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Uploads (user-generated content)
+backend/uploads/photos/*
+!backend/uploads/photos/.gitkeep
+backend/uploads/screenshots/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Coverage
+coverage/
+
+# Supabase (legacy)
+mcdonalds-masterplan-main/supabase/
+
+# Lock files (keep package-lock, ignore bun)
+mcdonalds-masterplan-main/bun.lock
+mcdonalds-masterplan-main/bun.lockb
+
+# Test files
+test-photo.jpg
