@@ -50,7 +50,11 @@ export class PaymentService {
       .getOne();
     if (duplicate) throw new BadRequestException('A pending submission already exists for this email');
 
-    const photoUrl = photo_storage_path ? `${origin || ''}/uploads/photos/${photo_storage_path.split('/').pop()}` : null;
+    const photoUrl = photo_storage_path?.startsWith('http')
+      ? photo_storage_path
+      : photo_storage_path
+        ? `${origin || ''}/uploads/photos/${photo_storage_path.split('/').pop()}`
+        : null;
 
     const supporter = this.supporterRepo.create({
       name: name.substring(0, 100),

@@ -2,21 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PhotoPackage } from './photo-package.entity';
-import * as fs from 'fs';
-import * as path from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import { S3Service } from '../../common/services/s3.service';
 
 @Injectable()
 export class PhotoService {
-  private uploadDir = path.join(process.cwd(), 'uploads', 'photos');
-
   constructor(
     @InjectRepository(PhotoPackage) private packageRepo: Repository<PhotoPackage>,
-  ) {
-    if (!fs.existsSync(this.uploadDir)) {
-      fs.mkdirSync(this.uploadDir, { recursive: true });
-    }
-  }
+    private s3: S3Service,
+  ) {}
 
   async getActivePackages() {
     return this.packageRepo.find({
@@ -52,25 +45,26 @@ export class PhotoService {
   }
 
   async saveUploadedFile(file: Express.Multer.File): Promise<{ path: string; url: string }> {
-    const ext = path.extname(file.originalname);
-    const filename = `${Date.now()}-${uuidv4()}${ext}`;
-    const filepath = path.join(this.uploadDir, filename);
-    fs.writeFileSync(filepath, file.buffer);
-    return {
-      path: `uploads/photos/${filename}`,
-      url: `/uploads/photos/${filename}`,
-    };
+    const { key, url } = await this.s3.upload(
+      file.buffer,
+      file.originalname,
+      'photos',
+      file.mimetype,
+    );
+    return { path: key, url };
   }
 
   async saveScreenshot(base64Data: string, queueId: string): Promise<string> {
-    const screenshotDir = path.join(process.cwd(), 'uploads', 'screenshots');
-    if (!fs.existsSync(screenshotDir)) {
-      fs.mkdirSync(screenshotDir, { recursive: true });
-    }
-    const filename = `${queueId}-${Date.now()}.png`;
-    const filepath = path.join(screenshotDir, filename);
-    const buffer = Buffer.from(base64Data.replace(/^data:image\/\w+;base64,/, ''), 'base64');
-    fs.writeFileSync(filepath, buffer);
-    return `/uploads/screenshots/${filename}`;
+    const buffer = Buffer.from(
+      base64Data.replace(/^data:image\/\w+;base64,/, ''),
+      'base64',
+    );
+    const { url } = await this.s3.upload(
+      buffer,
+      `${queueId}.png`,
+      'screenshots',
+      'image/png',
+    );
+    return url;
   }
 }

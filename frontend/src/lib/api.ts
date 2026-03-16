@@ -48,8 +48,8 @@ export async function uploadPhoto(file: File): Promise<string | null> {
   try {
     const formData = new FormData();
     formData.append("file", file);
-    const data = await api.upload<{ path: string }>("/photos/upload", formData);
-    return data?.path || null;
+    const data = await api.upload<{ path: string; url: string }>("/photos/upload", formData);
+    return data?.url || data?.path || null;
   } catch (err) {
     console.error("Photo upload error:", err);
     return null;
@@ -88,7 +88,7 @@ export async function createMerchCheckout(params: {
   }
 }
 
-// Helper to resolve photo URLs from the backend
+// Helper to resolve photo URLs — supports S3 URLs and legacy local paths
 export function resolvePhotoUrl(path: string): string {
   if (!path) return "";
   if (path.startsWith("http")) return path;

@@ -1,7 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import * as express from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 
@@ -26,9 +25,6 @@ async function bootstrap() {
       forbidNonWhitelisted: false,
     }),
   );
-
-  // Serve uploaded files
-  app.use('/uploads', express.static('uploads'));
 
   const config = new DocumentBuilder()
     .setTitle('Fundraising & Stream Platform API')

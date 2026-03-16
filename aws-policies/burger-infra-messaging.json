@@ -1,0 +1,122 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SQSManagement",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:CreateQueue",
+        "sqs:DeleteQueue",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl",
+        "sqs:SetQueueAttributes",
+        "sqs:ListQueues",
+        "sqs:ListQueueTags",
+        "sqs:TagQueue",
+        "sqs:UntagQueue",
+        "sqs:SendMessage",
+        "sqs:SendMessageBatch",
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:DeleteMessageBatch",
+        "sqs:PurgeQueue",
+        "sqs:ChangeMessageVisibility",
+        "sqs:ChangeMessageVisibilityBatch",
+        "sqs:ListDeadLetterSourceQueues",
+        "sqs:StartMessageMoveTask",
+        "sqs:CancelMessageMoveTask",
+        "sqs:ListMessageMoveTasks"
+      ],
+      "Resource": "arn:aws:sqs:*:391824190859:burger-*"
+    },
+    {
+      "Sid": "SQSListAll",
+      "Effect": "Allow",
+      "Action": "sqs:ListQueues",
+      "Resource": "*"
+    },
+    {
+      "Sid": "SNSManagement",
+      "Effect": "Allow",
+      "Action": [
+        "sns:CreateTopic",
+        "sns:DeleteTopic",
+        "sns:GetTopicAttributes",
+        "sns:SetTopicAttributes",
+        "sns:ListTopics",
+        "sns:Subscribe",
+        "sns:Unsubscribe",
+        "sns:Publish",
+        "sns:ConfirmSubscription",
+        "sns:GetSubscriptionAttributes",
+        "sns:SetSubscriptionAttributes",
+        "sns:ListSubscriptions",
+        "sns:ListSubscriptionsByTopic",
+        "sns:TagResource",
+        "sns:UntagResource",
+        "sns:ListTagsForResource",
+        "sns:CreatePlatformApplication",
+        "sns:DeletePlatformApplication",
+        "sns:GetPlatformApplicationAttributes",
+        "sns:SetPlatformApplicationAttributes",
+        "sns:ListPlatformApplications"
+      ],
+      "Resource": "arn:aws:sns:*:391824190859:burger-*"
+    },
+    {
+      "Sid": "SNSListAll",
+      "Effect": "Allow",
+      "Action": [
+        "sns:ListTopics",
+        "sns:ListSubscriptions"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "SESManagement",
+      "Effect": "Allow",
+      "Action": [
+        "ses:CreateEmailIdentity",
+        "ses:DeleteEmailIdentity",
+        "ses:GetEmailIdentity",
+        "ses:ListEmailIdentities",
+        "ses:CreateEmailTemplate",
+        "ses:DeleteEmailTemplate",
+        "ses:GetEmailTemplate",
+        "ses:ListEmailTemplates",
+        "ses:UpdateEmailTemplate",
+        "ses:SendEmail",
+        "ses:SendBulkEmail",
+        "ses:SendTemplatedEmail",
+        "ses:CreateConfigurationSet",
+        "ses:DeleteConfigurationSet",
+        "ses:GetConfigurationSet",
+        "ses:ListConfigurationSets",
+        "ses:UpdateConfigurationSetEventDestination",
+        "ses:CreateConfigurationSetEventDestination",
+        "ses:DeleteConfigurationSetEventDestination",
+        "ses:GetAccount",
+        "ses:PutAccountSendingAttributes",
+        "ses:GetDedicatedIps",
+        "ses:PutEmailIdentityDkimSigningAttributes",
+        "ses:PutEmailIdentityMailFromAttributes",
+        "ses:PutEmailIdentityFeedbackAttributes",
+        "ses:GetSuppressedDestination",
+        "ses:ListSuppressedDestinations",
+        "ses:PutSuppressedDestination",
+        "ses:DeleteSuppressedDestination",
+        "ses:TagResource",
+        "ses:UntagResource",
+        "ses:ListTagsForResource",
+        "ses:CreateContactList",
+        "ses:DeleteContactList",
+        "ses:GetContactList",
+        "ses:ListContactLists",
+        "ses:PutAccountDetails",
+        "ses:GetDomainStatisticsReport",
+        "ses:BatchGetMetricData"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

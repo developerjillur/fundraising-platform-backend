@@ -1,0 +1,1279 @@
+╭─── Claude Code v2.1.72 ──────────────────────────────────────────────────────╮
+│                                                    │ Tips for getting        │
+│                Welcome back Rahman!                │ started                 │
+│                                                    │ Run /init to create a … │
+│                       ▐▛███▜▌                      │ ─────────────────────── │
+│                      ▝▜█████▛▘                     │ Recent activity         │
+│                        ▘▘ ▝▝                       │ No recent activity      │
+│ Opus 4.6 · Claude Max · perfectjillur@gmail.com's  │                         │
+│ Organization                                       │                         │
+│      ~/…/fundraising-platform-backend/backend      │                         │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+❯ '/home/jonayed/Desktop/Nexal/fund_raising/fundraising-platform-backend/backen 
+d'this is my backend and here is my frontend '/home/jonayed/Desktop/Nexal/fund_ 
+raising/fundraising-platform-backend/frontend', now explore the technology and  
+we need to make them live into AWS. in a way that is perfectly fit as it should 
+ be cost effictive as well as efficient and professional. what servicess do you 
+ prefer for this?                                                               
+
+● Let me explore both codebases to understand the tech stack first.
+
+● 2 Explore agents finished (ctrl+o to expand)
+   ├─ Explore backend tech stack · 33 tool uses · 41.6k tokens
+   │  ⎿  Done
+   └─ Explore frontend tech stack · 28 tool uses · 53.7k tokens
+      ⎿  Done
+
+❯ we also need to have Ci-CV if possible.                                       
+
+● Now I have a full picture of your stack. Here's my recommendation:
+
+  ---
+  Tech Stack Summary
+
+  ┌───────────────┬────────────────────────────────────────────┐
+  │     Layer     │                 Technology                 │
+  ├───────────────┼────────────────────────────────────────────┤
+  │ Backend       │ NestJS (Node.js 20, TypeScript)            │
+  ├───────────────┼────────────────────────────────────────────┤
+  │ Frontend      │ Next.js 16 (React 19, standalone mode)     │
+  ├───────────────┼────────────────────────────────────────────┤
+  │ Database      │ MySQL 8.0 (TypeORM)                        │
+  ├───────────────┼────────────────────────────────────────────┤
+  │ Auth          │ JWT + Passport.js                          │
+  ├───────────────┼────────────────────────────────────────────┤
+  │ File Storage  │ Local filesystem (uploads/)                │
+  ├───────────────┼────────────────────────────────────────────┤
+  │ Real-time     │ Server-Sent Events (SSE)                   │
+  ├───────────────┼────────────────────────────────────────────┤
+  │ External APIs │ Stripe, Resend, Klaviyo, Printful, YouTube │
+  └───────────────┴────────────────────────────────────────────┘
+
+  ---
+  Recommended AWS Architecture
+
+  Tier 1: Compute — ECS Fargate (both frontend & backend)
+
+  Why Fargate over EC2/EKS/Lambda:
+  - Both apps already have Dockerfiles — zero refactoring needed
+  - No servers to patch or manage (serverless containers)
+  - Pay only for what you use (vCPU + memory per second)
+  - SSE long-lived connections work fine (unlike Lambda's 15min timeout)
+  - Scales automatically based on demand
+  - Cost: ~$15-30/month for light traffic (0.25 vCPU, 0.5GB each)
+
+  Tier 2: Database — Amazon RDS MySQL (Free Tier eligible)
+
+  - db.t3.micro or db.t4g.micro — free for 12 months
+  - Automated backups, Multi-AZ option for production
+  - No database management overhead
+  - Cost: ~$0 (free tier) → ~$15-25/month after
+
+  Tier 3: File Storage — Amazon S3 + CloudFront
+
+  - Replace local uploads/ with S3 bucket (minor code change in
+  photo.service.ts)
+  - CloudFront CDN for fast delivery of photos/screenshots globally
+  - Virtually unlimited storage
+  - Cost: ~$1-5/month for moderate usage
+
+  Tier 4: Networking & CDN — Application Load Balancer + CloudFront
+
+  - ALB routes traffic to Fargate tasks (health checks, SSL termination)
+  - CloudFront in front of the frontend for caching static assets
+  - Cost: ~$16-20/month (ALB minimum)
+
+  Tier 5: DNS & SSL — Route 53 + ACM
+
+  - Route 53 for domain management
+  - ACM provides free SSL certificates
+  - Cost: ~$0.50/month (hosted zone) + $0 for SSL
+
+  Tier 6: CI/CD — GitHub Actions + ECR
+
+  - GitHub Actions: Free for public repos, 2000 min/month for private
+  - ECR (Elastic Container Registry): Store Docker images
+  - Pipeline: Push → Build Docker images → Push to ECR → Deploy to ECS
+  - Separate workflows for backend/ and frontend/
+  - Cost: ~$0-1/month
+
+  Tier 7: Secrets & Config — AWS Systems Manager Parameter Store
+
+  - Store all your env vars (Stripe keys, JWT secret, DB creds, API keys)
+  - Free for standard parameters
+  - ECS tasks pull secrets at launch
+  - Cost: $0
+
+  Tier 8: Monitoring — CloudWatch
+
+  - Container logs, metrics, alarms
+  - Basic monitoring included free
+  - Cost: ~$0-3/month
+
+  ---
+  Architecture Diagram
+
+                      ┌─────────────┐
+                      │  Route 53   │
+                      │  (DNS)      │
+                      └──────┬──────┘
+                             │
+                      ┌──────▼──────┐
+                      │ CloudFront  │
+                      │ (CDN + SSL) │
+                      └──────┬──────┘
+                             │
+                      ┌──────▼──────┐
+                      │     ALB     │
+                      │ (Load Bal.) │
+                      └───┬─────┬──┘
+                          │     │
+                ┌─────────▼┐   ┌▼─────────┐
+                │  ECS      │   │  ECS      │
+                │  Fargate  │   │  Fargate  │
+                │ (Backend) │   │ (Frontend)│
+                └─────┬─────┘   └───────────┘
+                      │
+           ┌──────────┼──────────┐
+           │          │          │
+      ┌────▼───┐ ┌────▼───┐ ┌───▼────────┐
+      │ RDS    │ │  S3    │ │ Parameter  │
+      │ MySQL  │ │(files) │ │ Store      │
+      └────────┘ └────────┘ └────────────┘
+
+      CI/CD: GitHub Actions → ECR → ECS Deploy
+
+  ---
+  Estimated Monthly Cost
+
+  ┌─────────────────────────────┬────────────────┐
+  │           Service           │    Estimate    │
+  ├─────────────────────────────┼────────────────┤
+  │ ECS Fargate (2 services)    │ $30-50         │
+  ├─────────────────────────────┼────────────────┤
+  │ RDS MySQL (after free tier) │ $15-25         │
+  ├─────────────────────────────┼────────────────┤
+  │ ALB                         │ $16-20         │
+  ├─────────────────────────────┼────────────────┤
+  │ S3 + CloudFront             │ $1-5           │
+  ├─────────────────────────────┼────────────────┤
+  │ Route 53                    │ $0.50          │
+  ├─────────────────────────────┼────────────────┤
+  │ ECR                         │ $1             │
+  ├─────────────────────────────┼────────────────┤
+  │ CloudWatch                  │ $0-3           │
+  ├─────────────────────────────┼────────────────┤
+  │ Total                       │ ~$65-105/month │
+  └─────────────────────────────┴────────────────┘
+
+  During RDS free tier (first 12 months): ~$50-80/month
+
+  ---
+  CI/CD Pipeline (GitHub Actions)
+
+  The flow would be:
+
+  Push to main → GitHub Actions triggers:
+    1. Run tests (npm test)
+    2. Build Docker image
+    3. Push image to ECR
+    4. Update ECS service (rolling deployment, zero downtime)
+
+  Separate pipelines for frontend and backend — only rebuilds what changed.
+
+  ---
+  Why NOT These Alternatives
+
+  ┌─────────────────┬───────────────────────────────────────────────────────┐
+  │     Option      │                        Why Not                        │
+  ├─────────────────┼───────────────────────────────────────────────────────┤
+  │ EC2             │ Server management overhead, patching, less elastic    │
+  ├─────────────────┼───────────────────────────────────────────────────────┤
+  │ EKS             │ Overkill — $72/month just for the control plane       │
+  │ (Kubernetes)    │                                                       │
+  ├─────────────────┼───────────────────────────────────────────────────────┤
+  │ Lambda          │ SSE connections need long-lived processes; major      │
+  │                 │ refactoring needed                                    │
+  ├─────────────────┼───────────────────────────────────────────────────────┤
+  │ Elastic         │ Less control, harder to optimize costs                │
+  │ Beanstalk       │                                                       │
+  ├─────────────────┼───────────────────────────────────────────────────────┤
+  │ Lightsail       │ Fine for simple apps, but limited scaling and         │
+  │                 │ networking                                            │
+  ├─────────────────┼───────────────────────────────────────────────────────┤
+  │ Amplify         │ Good for plain Next.js but harder with custom backend │
+  │                 │  + SSE                                                │
+  └─────────────────┴───────────────────────────────────────────────────────┘
+
+  ---
+  One Required Code Change
+
+  You'll need to swap local file storage to S3 in photo.service.ts and anywhere
+  files are saved to uploads/. This is a small change (~20 lines) using the
+  @aws-sdk/client-s3 package. Everything else deploys as-is with your existing
+  Dockerfiles.
+
+  ---
+  Want me to proceed with implementation? I can:
+  1. Write the CI/CD pipelines (GitHub Actions workflows)
+  2. Create the Terraform/IaC for the entire AWS infrastructure
+  3. Migrate file uploads to S3 in the backend code
+
+  Let me know which direction you'd like to go, or if you want me to start with
+  all of it.
+
+✻ Crunched for 6m 27s
+
+❯ Now first of all change the Image storage system to S3 please. then we will   
+proceed.                                                                        
+
+● Let me first explore the current file upload/storage implementation in detail.
+
+● Searched for 2 patterns, read 3 files (ctrl+o to expand)
+
+● Now let me check the main.ts and the photo module structure.
+
+● Read 3 files (ctrl+o to expand)
+
+● Now let me check where photo_storage_path is referenced in the frontend and if
+   there are any other upload references.
+
+● Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● Let me check the frontend API calls that handle uploads to understand the full
+   flow.
+
+● Read 1 file (ctrl+o to expand)
+
+● Now I have the full picture. Let me also check the stream overlay page since
+  it likely displays photos.
+
+● Searched for 1 pattern (ctrl+o to expand)
+
+● I have the full picture. Here's what needs to change:
+
+  Backend: Install AWS SDK, rewrite photo.service.ts to upload to S3, remove
+  static file serving
+  Frontend: Update URL resolution logic (S3 returns full URLs, so simplify the
+  resolvers)
+  Payment: Handle S3 URLs in payment.service.ts
+
+  Let me implement this.
+
+● Bash(cd /home/jonayed/Desktop/Nexal/fund_raising/fundraising-platform-backend/
+      backend && npm install @aws-sdk/client-s3)
+  ⎿  npm warn deprecated glob@10.4.5: Old versions of glob are not supporte
+     d, and contain widely publicized security vulnerabilities, which have
+     been fixed in the current version. Please update. Support for old vers
+     … +13 lines (ctrl+o to expand)
+  ⎿  (timeout 1m)
+
+● Now let me create the S3 service and update all the files.
+
+● Write(src/common/services/s3.service.ts)
+  ⎿  Wrote 48 lines to src/common/services/s3.service.ts
+       1 import { Injectable } from '@nestjs/common';
+       2 import { ConfigService } from '@nestjs/config';
+       3 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+       4 import { v4 as uuidv4 } from 'uuid';
+       5 
+       6 @Injectable()
+       7 export class S3Service {
+       8   private s3: S3Client;
+       9   private bucket: string;
+      10   private region: string;
+     … +38 lines (ctrl+o to expand)
+
+● Write(src/common/services/s3.module.ts)
+  ⎿  Wrote 9 lines to src/common/services/s3.module.ts
+      1 import { Global, Module } from '@nestjs/common';
+      2 import { S3Service } from './s3.service';
+      3 
+      4 @Global()
+      5 @Module({
+      6   providers: [S3Service],
+      7   exports: [S3Service],
+      8 })
+      9 export class S3Module {}
+
+● Now update app.module.ts to import S3Module:
+
+● Update(src/app.module.ts)
+  ⎿  Added 1 line
+       4  import { EventEmitterModule } from '@nestjs/event-emitter';
+       5  import { ThrottlerModule } from '@nestjs/throttler';
+       6  
+       7 +import { S3Module } from './common/services/s3.module';        
+       8  import { AuthModule } from './domain/auth/auth.module';
+       9  import { FundraisingModule } from './domain/fundraising/fundrai
+          sing.module';
+      10  import { PhotoModule } from './domain/photo/photo.module';
+
+● Update(src/app.module.ts)
+  ⎿  Added 1 line
+      21      ConfigModule.forRoot({ isGlobal: true }),
+      22      EventEmitterModule.forRoot(),
+      23      ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
+      24 +    S3Module,                                                  
+      25      TypeOrmModule.forRootAsync({
+      26        imports: [ConfigModule],
+      27        inject: [ConfigService],
+
+● Now rewrite photo.service.ts to use S3:
+
+● Write(src/domain/photo/photo.service.ts)
+  ⎿  Added 21 lines, removed 27 lines
+       2  import { InjectRepository } from '@nestjs/typeorm';
+       3  import { Repository } from 'typeorm';
+       4  import { PhotoPackage } from './photo-package.entity';
+       5 -import * as fs from 'fs';                                      
+       6 -import * as path from 'path';                                  
+       7 -import { v4 as uuidv4 } from 'uuid';                           
+       5 +import { S3Service } from '../../common/services/s3.service';  
+       6  
+       7  @Injectable()
+       8  export class PhotoService {
+      11 -  private uploadDir = path.join(process.cwd(), 'uploads', 'phot
+         -os');                                                          
+      12 -                                                               
+       9    constructor(
+      10      @InjectRepository(PhotoPackage) private packageRepo: Reposi
+          tory<PhotoPackage>,
+      15 -  ) {                                                          
+      16 -    if (!fs.existsSync(this.uploadDir)) {                      
+      17 -      fs.mkdirSync(this.uploadDir, { recursive: true });       
+      18 -    }                                                          
+      19 -  }                                                            
+      11 +    private s3: S3Service,                                     
+      12 +  ) {}                                                         
+      13  
+      14    async getActivePackages() {
+      15      return this.packageRepo.find({
+     ...
+      45    }
+      46  
+      47    async saveUploadedFile(file: Express.Multer.File): Promise<{ 
+          path: string; url: string }> {
+      55 -    const ext = path.extname(file.originalname);               
+      56 -    const filename = `${Date.now()}-${uuidv4()}${ext}`;        
+      57 -    const filepath = path.join(this.uploadDir, filename);      
+      58 -    fs.writeFileSync(filepath, file.buffer);                   
+      59 -    return {                                                   
+      60 -      path: `uploads/photos/${filename}`,                      
+      61 -      url: `/uploads/photos/${filename}`,                      
+      62 -    };                                                         
+      48 +    const { key, url } = await this.s3.upload(                 
+      49 +      file.buffer,                                             
+      50 +      file.originalname,                                       
+      51 +      'photos',                                                
+      52 +      file.mimetype,                                           
+      53 +    );                                                         
+      54 +    return { path: key, url };                                 
+      55    }
+      56  
+      57    async saveScreenshot(base64Data: string, queueId: string): Pr
+          omise<string> {
+      66 -    const screenshotDir = path.join(process.cwd(), 'uploads', '
+         -screenshots');                                                 
+      67 -    if (!fs.existsSync(screenshotDir)) {                       
+      68 -      fs.mkdirSync(screenshotDir, { recursive: true });        
+      69 -    }                                                          
+      70 -    const filename = `${queueId}-${Date.now()}.png`;           
+      71 -    const filepath = path.join(screenshotDir, filename);       
+      72 -    const buffer = Buffer.from(base64Data.replace(/^data:image\
+         -/\w+;base64,/, ''), 'base64');                                 
+      73 -    fs.writeFileSync(filepath, buffer);                        
+      74 -    return `/uploads/screenshots/${filename}`;                 
+      58 +    const buffer = Buffer.from(                                
+      59 +      base64Data.replace(/^data:image\/\w+;base64,/, ''),      
+      60 +      'base64',                                                
+      61 +    );                                                         
+      62 +    const { url } = await this.s3.upload(                      
+      63 +      buffer,                                                  
+      64 +      `${queueId}.png`,                                        
+      65 +      'screenshots',                                           
+      66 +      'image/png',                                             
+      67 +    );                                                         
+      68 +    return url;                                                
+      69    }
+      70  }
+
+● Now update payment.service.ts — the photo URL construction on line 53 needs to
+   handle S3 URLs:
+
+● Update(src/domain/payment/payment.service.ts)
+  ⎿  Added 5 lines, removed 1 line
+      50        .getOne();
+      51      if (duplicate) throw new BadRequestException('A pending sub
+          mission already exists for this email');
+      52  
+      53 -    const photoUrl = photo_storage_path ? `${origin || ''}/uplo
+         -ads/photos/${photo_storage_path.split('/').pop()}` : null;     
+      53 +    const photoUrl = photo_storage_path?.startsWith('http')    
+      54 +      ? photo_storage_path                                     
+      55 +      : photo_storage_path                                     
+      56 +        ? `${origin || ''}/uploads/photos/${photo_storage_path.
+         +split('/').pop()}`                                             
+      57 +        : null;                                                
+      58  
+      59      const supporter = this.supporterRepo.create({
+      60        name: name.substring(0, 100),
+
+● Now remove the static file serving from main.ts (no longer needed for S3):
+
+● Update(src/main.ts)
+  ⎿  Removed 3 lines
+      27      }),
+      28    );
+      29  
+      30 -  // Serve uploaded files                                      
+      31 -  app.use('/uploads', express.static('uploads'));              
+      32 -                                                               
+      30    const config = new DocumentBuilder()
+      31      .setTitle('Fundraising & Stream Platform API')
+      32      .setDescription('REST API for the fundraising platform')
+
+● Also remove the unused express import since it was only used for static
+  serving:
+
+● Searched for 1 pattern (ctrl+o to expand)
+
+● Update(src/main.ts)
+  ⎿  Removed 1 line
+      1  import { NestFactory } from '@nestjs/core';
+      2  import { ValidationPipe } from '@nestjs/common';
+      3  import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger'
+         ;
+      4 -import * as express from 'express';                             
+      4  import helmet from 'helmet';
+      5  import { AppModule } from './app.module';
+      6  
+
+● Now update the frontend — the upload response now returns a full S3 URL.
+  Update the API and URL resolution logic:
+
+● Update(~/Desktop/Nexal/fund_raising/fundraising-platform-backend/frontend/src/
+        lib/api.ts)
+  ⎿  Added 2 lines, removed 2 lines
+      48    try {
+      49      const formData = new FormData();
+      50      formData.append("file", file);
+      51 -    const data = await api.upload<{ path: string }>("/photos/up
+         -load", formData);                                              
+      52 -    return data?.path || null;                                 
+      51 +    const data = await api.upload<{ path: string; url: string }
+         +>("/photos/upload", formData);                                 
+      52 +    return data?.url || data?.path || null;                    
+      53    } catch (err) {
+      54      console.error("Photo upload error:", err);
+      55      return null;
+
+● Now update resolvePhotoUrl to handle S3 URLs (already http):
+
+● Update(~/Desktop/Nexal/fund_raising/fundraising-platform-backend/frontend/src/
+        lib/api.ts)
+  ⎿  Added 1 line, removed 1 line
+      88    }
+      89  }
+      90  
+      91 -// Helper to resolve photo URLs from the backend               
+      91 +// Helper to resolve photo URLs — supports S3 URLs and legacy l
+         +ocal paths                                                     
+      92  export function resolvePhotoUrl(path: string): string {
+      93    if (!path) return "";
+      94    if (path.startsWith("http")) return path;
+
+● Good — the resolvePhotoUrl already handles http URLs first, so S3 URLs pass
+  through correctly. The legacy fallback still works for any old local paths.
+  Now let me update the LiveStream.tsx and stream-overlay/page.tsx which have
+  their own inline resolvers:
+
+● Read 2 files (ctrl+o to expand)
+
+● Both already handle http URLs correctly — they only prepend the local API URL
+  for non-http paths. S3 URLs (which start with https://) will pass through
+  unchanged. No changes needed there.
+
+  Now let me also check the AdminQueueManager.tsx references:
+
+● Read 1 file (ctrl+o to expand)
+
+● These inline checks also already handle http URLs. S3 URLs will work as-is.
+
+  Now let me verify the backend compiles:
+
+● Bash(npx nest build 2>&1 | tail -20)
+  ⎿  (No output)
+  ⎿  (timeout 30s)
+
+● Bash(npx nest build 2>&1 | tail -20)
+  ⎿  (No output)
+  ⎿  (timeout 30s)
+
+● Bash(npx nest build 2>&1)
+  ⎿  (No output)
+  ⎿  (timeout 30s)
+
+● Bash(npx nest build 2>&1)
+  ⎿  (No output)
+  ⎿  (timeout 30s)
+
+● Bash(npx nest build 2>&1; echo "EXIT: $?")
+  ⎿  EXIT: 0
+  ⎿  (timeout 30s)
+
+● Bash(pwd)
+  ⎿  /home/jonayed/Desktop/Nexal/fund_raising/fundraising-platform-backend/
+     backend
+
+● Bash(npx nest build 2>&1; echo "EXIT_CODE: $?")
+  ⎿  EXIT_CODE: 0
+  ⎿  (timeout 30s)
+
+● Build passes with exit code 0. Now let me check what env vars need to be
+  added. Let me look for an existing .env.example or .env:
+
+● Searched for 2 patterns, read 1 file (ctrl+o to expand)
+
+● Empty file. Let me also check the .gitignore to make sure .env is ignored:
+
+● Searched for 1 pattern (ctrl+o to expand)
+
+● Good, .env is gitignored. Let me verify the final state of all changed files:
+
+● Read 2 files (ctrl+o to expand)
+
+● Everything looks clean. Here's a summary of all changes made:
+
+  ---
+  S3 Migration Complete
+
+  Files Created (Backend)
+
+  - src/common/services/s3.service.ts — Reusable S3 upload service using
+  @aws-sdk/client-s3
+  - src/common/services/s3.module.ts — Global NestJS module so any service can
+  inject S3Service
+
+  Files Modified
+
+  File: backend/src/app.module.ts
+  Change: Added S3Module import (global)
+  ────────────────────────────────────────
+  File: backend/src/domain/photo/photo.service.ts
+  Change: Replaced fs.writeFileSync with S3Service.upload() for both photos and
+    screenshots
+  ────────────────────────────────────────
+  File: backend/src/domain/payment/payment.service.ts
+  Change: photo_url now checks if path is already an S3 URL before constructing
+  ────────────────────────────────────────
+  File: backend/src/main.ts
+  Change: Removed express.static('uploads') middleware and unused express import
+  ────────────────────────────────────────
+  File: frontend/src/lib/api.ts
+  Change: uploadPhoto() now returns url (S3 full URL) with path as fallback
+
+  No Changes Needed
+
+  - LiveStream.tsx, stream-overlay/page.tsx, AdminQueueManager.tsx — Already
+  handle http URLs correctly (S3 URLs pass through untouched)
+
+  Environment Variables Required
+
+  Add these to your .env (or AWS Parameter Store when deploying):
+
+  AWS_ACCESS_KEY_ID=your-access-key
+  AWS_SECRET_ACCESS_KEY=your-secret-key
+  AWS_S3_REGION=us-east-1
+  AWS_S3_BUCKET=your-bucket-name
+
+  S3 Bucket Setup Needed
+
+  When you create the S3 bucket, you'll need:
+  1. Public read access on objects (for serving photos directly) — or use
+  CloudFront with an Origin Access Identity for private buckets
+  2. CORS configuration allowing your frontend domain
+
+  Ready to proceed with CI/CD and AWS infrastructure setup whenever you are.
+
+✻ Cooked for 5m 49s
+
+❯ Awesome client provided me this '/home/jonayed/Desktop/Nexal/fund_raising/fun 
+draising-platform-backend/nexa_lance_credentials.csv' now with this we need to  
+have all the necessary updates. if needed we need to install the aws cli if     
+needed then access with this credentials and do what is necessary. MOST         
+IMPORTANT THING IS CLIENT SAYING : `before we start deploying infrastructure    
+for the project, I’d like us to follow a consistent naming and tagging          
+structure in AWS so resources are easy to manage and track.                     
+                                                                                
+*General rule:*                                                                 
+All resources created for this project should use the prefix *burger*.          
+                                                                                
+*Examples of resource names:*                                                   
+                                                                                
+* burger-api-ec2                                                                
+* burger-db-rds                                                                 
+* burger-cache-elasticache                                                      
+* burger-queue-sqs                                                              
+* burger-assets-s3                                                              
+* burger-cdn-cloudfront                                                         
+                                                                                
+If multiple environments are created, please include the environment as well:   
+                                                                                
+Examples:                                                                       
+                                                                                
+* burger-dev-api-ec2                                                            
+* burger-prod-db-rds                                                            
+* burger-dev-assets-s3                                                          
+                                                                                
+*Required AWS Tags*                                                             
+                                                                                
+Please apply these tags to all resources when possible:                         
+                                                                                
+* Project = burger                                                              
+* Environment = dev / staging / prod                                            
+                                                                                
+                                                                                
+This helps us:                                                                  
+                                                                                
+* track costs per project                                                       
+* manage resources across multiple projects                                     
+* avoid accidentally modifying resources belonging to other systems` so         
+according to this we need to take dicisions.                                    
+
+● Let me read the credentials and check the environment.
+
+● Read 1 file (ctrl+o to expand)
+
+● Bash(which aws 2>/dev/null && aws --version 2>/dev/null || echo
+      "AWS_CLI_NOT_INSTALLED")
+  ⎿  /usr/local/bin/aws
+     aws-cli/2.32.32 Python/3.13.11 Linux/6.8.0-101-generic exe/x86_64.ubun
+     tu.22
+
+● AWS CLI is installed. However, there's an issue with the credentials file — it
+   contains console login credentials (username + password), not programmatic 
+  access keys needed for the CLI.
+
+  ┌──────────────────────────────────────────────────┬──────────────────────┐
+  │                   What we have                   │ What we need for CLI │
+  ├──────────────────────────────────────────────────┼──────────────────────┤
+  │                                                  │ AWS_ACCESS_KEY_ID    │
+  │ Username: nexa_lance                             │ (starts with         │
+  │                                                  │ AKIA...)             │
+  ├──────────────────────────────────────────────────┼──────────────────────┤
+  │ Password: r+Qyh7D_                               │ AWS_SECRET_ACCESS_KE │
+  │                                                  │ Y                    │
+  ├──────────────────────────────────────────────────┼──────────────────────┤
+  │ Console URL: https://391824190859.signin.aws.ama │ —                    │
+  │ zon.com/console                                  │                      │
+  └──────────────────────────────────────────────────┴──────────────────────┘
+
+  We need to generate Access Keys from IAM. Here's what to do:
+
+  1. Log into the AWS Console at
+  https://391824190859.signin.aws.amazon.com/console with username nexa_lance
+  and the password from the CSV
+  2. Go to IAM → Users → nexa_lance → Security credentials tab
+  3. Click Create access key → Select "Command Line Interface (CLI)"
+  4. Download the CSV with Access Key ID and Secret Access Key
+
+  Once you have those keys, share them with me (or paste just the Access Key ID
+  and Secret Access Key) and I'll:
+  - Configure AWS CLI with a burger profile
+  - Create the burger-prod-assets-s3 bucket with proper tags
+  - Set up CORS policy for the frontend
+  - Update the backend .env with the S3 config
+
+  Want me to walk you through it in the console, or can you grab the access keys
+   from the client?
+
+❯ now it is saying: `User: arn:aws:iam::391824190859:user/nexa_lance            
+Action: iam:ListUsers                                                           
+On resource(s): arn:aws:iam::391824190859:user/                                 
+Context: no identity-based policy allows the action` so this user has very      
+compromised permission it might be.                                             
+
+● That's expected — the nexa_lance user has limited IAM permissions (can't
+  browse IAM users). But they likely can still create their own access keys. The
+   path is different:
+
+  Instead of going through IAM → Users, do this:
+
+  1. Click on the username nexa_lance in the top-right corner of the AWS console
+  2. Click "Security credentials" (this goes to your own credentials, no IAM
+  permission needed)
+  3. Scroll down to "Access keys"
+  4. Click "Create access key"
+
+  This uses iam:CreateAccessKey on your own user, which is usually allowed even
+  with restricted policies.
+
+  If that also fails, then the client needs to either:
+  - Grant nexa_lance the iam:CreateAccessKey permission on their own user
+  - Or create the access keys themselves and share the CSV
+
+  Try the top-right menu approach first — it usually works.
+
+❯ User: arn:aws:iam::391824190859:user/nexa_lance                               
+Action: iam:ListAccessKeys                                                      
+Context: no identity-based policy allows the action                             
+
+● This user is very locked down — no IAM self-service at all. The client
+  (account admin) needs to do one of these:
+
+  Option A — Ask the client to create access keys for you (quickest)
+
+  Send them this message:
+
+  "Can you create programmatic access keys for the nexa_lance IAM user? Go to 
+  IAM → Users → nexa_lance → Security credentials → Create access key and send 
+  me the CSV with the Access Key ID and Secret Access Key."
+
+  Option B — Ask the client to attach a minimal policy
+
+  If they want nexa_lance to self-manage keys, they need to attach this inline
+  policy:
+
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "iam:CreateAccessKey",
+          "iam:ListAccessKeys"
+        ],
+        "Resource": "arn:aws:iam::391824190859:user/nexa_lance"
+      }
+    ]
+  }
+
+  Option A is faster — just ask the client to generate the keys and send the
+  CSV. Once we have AKIA... + secret key, we're rolling.
+
+❯ How many permissions do we need for the entiare process can you please        
+provide me the list of the permissions.                                         
+
+● Let me compile the full list based on our architecture plan.
+
+● cloud-infrastructure:cloud-architect(Compile AWS permissions list)
+  ⎿  Done (0 tool uses · 16.9k tokens · 1m 20s)
+  (ctrl+o to expand)
+
+● Here's the complete permissions list for the entire deployment. Send these two
+   JSON policies to your client — they need to attach both to the nexa_lance
+  user.
+
+  ---
+  Permissions Needed (Grouped by Service)
+
+  ┌────────────┬────────────────────────┬───────────────────────────────────┐
+  │  Service   │        Purpose         │          Key Permissions          │
+  ├────────────┼────────────────────────┼───────────────────────────────────┤
+  │ ECR        │ Docker image registry  │ Create repos, push/pull images    │
+  ├────────────┼────────────────────────┼───────────────────────────────────┤
+  │ ECS        │ Run Fargate containers │ Cluster, services, task           │
+  │            │                        │ definitions                       │
+  ├────────────┼────────────────────────┼───────────────────────────────────┤
+  │ RDS        │ MySQL database         │ Create instance (locked to        │
+  │            │                        │ db.t3.micro/small)                │
+  ├────────────┼────────────────────────┼───────────────────────────────────┤
+  │ S3         │ Photo/screenshot       │ Bucket management, object CRUD    │
+  │            │ uploads                │                                   │
+  ├────────────┼────────────────────────┼───────────────────────────────────┤
+  │ CloudFront │ CDN for assets         │ Create/manage distributions       │
+  ├────────────┼────────────────────────┼───────────────────────────────────┤
+  │ ALB        │ Load balancer          │ Listeners, target groups, routing │
+  ├────────────┼────────────────────────┼───────────────────────────────────┤
+  │ ACM        │ Free SSL certificates  │ Request/describe certs            │
+  ├────────────┼────────────────────────┼───────────────────────────────────┤
+  │ Route 53   │ DNS management         │ Hosted zones, records             │
+  ├────────────┼────────────────────────┼───────────────────────────────────┤
+  │ CloudWatch │ Container logs         │ Log groups for ECS                │
+  ├────────────┼────────────────────────┼───────────────────────────────────┤
+  │ SSM        │ Secrets/env vars       │ Parameter store (path: /burger/*) │
+  ├────────────┼────────────────────────┼───────────────────────────────────┤
+  │ VPC/EC2    │ Networking             │ Security groups, describe subnets │
+  ├────────────┼────────────────────────┼───────────────────────────────────┤
+  │ IAM        │ ECS roles +            │ Scoped to burger-* roles only     │
+  │            │ self-manage keys       │                                   │
+  ├────────────┼────────────────────────┼───────────────────────────────────┤
+  │ STS        │ Identity verification  │ GetCallerIdentity                 │
+  └────────────┴────────────────────────┴───────────────────────────────────┘
+
+  ---
+  Message to Send Your Client
+
+  "Please create two IAM policies and attach them to the nexa_lance user. I've 
+  prepared the JSON files — they follow least-privilege principles with these 
+  safety constraints:
+  - IAM roles scoped to burger-* prefix only
+  - RDS locked to db.t3.micro/small (no expensive instances)
+  - SSM parameters scoped to /burger/* path
+  - No delete permissions on critical resources
+  - Access key self-management for nexa_lance only"
+
+  Let me save the policy files so you can share them:
+
+● Write(~/Desktop/Nexal/fund_raising/fundraising-platform-backend/aws-policies/b
+       urger-deploy-core.json)
+  ⎿  Wrote 141 lines to ../aws-policies/burger-deploy-core.json
+       1 {
+       2   "Version": "2012-10-17",
+       3   "Statement": [
+       4     {
+       5       "Sid": "ECRRepositoryManagement",
+       6       "Effect": "Allow",
+       7       "Action": [
+       8         "ecr:CreateRepository",
+       9         "ecr:DescribeRepositories",
+      10         "ecr:ListTagsForResource",
+     … +131 lines (ctrl+o to expand)
+
+● Write(~/Desktop/Nexal/fund_raising/fundraising-platform-backend/aws-policies/b
+       urger-deploy-support.json)
+  ⎿  Wrote 191 lines to ../aws-policies/burger-deploy-support.json
+       1 {
+       2   "Version": "2012-10-17",
+       3   "Statement": [
+       4     {
+       5       "Sid": "ALBManagement",
+       6       "Effect": "Allow",
+       7       "Action": [
+       8         "elasticloadbalancing:CreateLoadBalancer",
+       9         "elasticloadbalancing:DescribeLoadBalancers",
+      10         "elasticloadbalancing:CreateTargetGroup",
+     … +181 lines (ctrl+o to expand)
+
+● Policy files saved at aws-policies/. Here's what to tell your client:
+
+  ---
+  Send This to the Client
+
+  I need two IAM policies attached to the nexa_lance user before I can proceed 
+  with deployment. The JSON files are ready — here's what the admin needs to 
+  run:
+
+  # From the aws-policies/ folder
+  aws iam create-policy \
+    --policy-name BurgerDeployCore \
+    --policy-document file://burger-deploy-core.json
+
+  aws iam create-policy \
+    --policy-name BurgerDeploySupport \
+    --policy-document file://burger-deploy-support.json
+
+  aws iam attach-user-policy \
+    --user-name nexa_lance \
+    --policy-arn arn:aws:iam::391824190859:policy/BurgerDeployCore
+
+  aws iam attach-user-policy \
+    --user-name nexa_lance \
+    --policy-arn arn:aws:iam::391824190859:policy/BurgerDeploySupport
+
+  Safety Guardrails Built In
+
+  ┌───────────────────────────────────────┬─────────────────────────────────┐
+  │              Constraint               │               Why               │
+  ├───────────────────────────────────────┼─────────────────────────────────┤
+  │ IAM roles limited to burger-* prefix  │ Can't create admin/root roles   │
+  ├───────────────────────────────────────┼─────────────────────────────────┤
+  │ RDS locked to db.t3.micro/small       │ Prevents expensive instance     │
+  │                                       │ launches                        │
+  ├───────────────────────────────────────┼─────────────────────────────────┤
+  │ SSM params scoped to /burger/*        │ Can't read/write other          │
+  │                                       │ projects' secrets               │
+  ├───────────────────────────────────────┼─────────────────────────────────┤
+  │ CloudWatch logs scoped to             │ Isolated logging                │
+  │ /ecs/burger-*                         │                                 │
+  ├───────────────────────────────────────┼─────────────────────────────────┤
+  │ No delete on RDS/ECS/S3 buckets       │ Destructive actions need admin  │
+  ├───────────────────────────────────────┼─────────────────────────────────┤
+  │ Access key self-management only for   │ Can't touch other users         │
+  │ nexa_lance                            │                                 │
+  └───────────────────────────────────────┴─────────────────────────────────┘
+
+  Once the client attaches both policies and either creates access keys for you
+  or you create them yourself from the console, we can start building the
+  infrastructure. Let me know when you have the Access Key ID and Secret Access
+  Key.
+
+✻ Cooked for 2m 46s
+
+❯ I want all of the permission list that will needed in future for deployment   
+creating resource and everything.                                               
+
+● Let me build a truly comprehensive policy covering the entire lifecycle —
+  initial setup, deployments, scaling, monitoring, debugging, CI/CD, and
+  maintenance.
+
+● cloud-infrastructure:cloud-architect(Comprehensive AWS permissions for full
+                                      lifecycle)
+  ⎿  Done (0 tool uses · 24.9k tokens · 2m 31s)
+  (ctrl+o to expand)
+
+● Now let me save all 8 policy files. I'll remove the old 2-policy files and
+  replace with the comprehensive set.
+
+● Bash(rm -f /home/jonayed/Desktop/Nexal/fund_raising/fundraising-platform-backe
+      nd/aws-policies/burger-deploy-core.json
+      /home/jonayed/Desktop/Nexal/fund_raising/fundra…)
+  ⎿  Done
+
+● Write(~/Desktop/Nexal/fund_raising/fundraising-platform-backend/aws-policies/b
+       urger-infra-core.json)
+  ⎿  Wrote 149 lines to ../aws-policies/burger-infra-core.json
+       1 {
+       2   "Version": "2012-10-17",
+       3   "Statement": [
+       4     {
+       5       "Sid": "IAMRolesForECS",
+       6       "Effect": "Allow",
+       7       "Action": [
+       8         "iam:CreateRole",
+       9         "iam:DeleteRole",
+      10         "iam:GetRole",
+     … +139 lines (ctrl+o to expand)
+
+● Write(~/Desktop/Nexal/fund_raising/fundraising-platform-backend/aws-policies/b
+       urger-infra-networking.json)
+  ⎿  Wrote 124 lines to ../aws-policies/burger-infra-networking.json
+       1 {
+       2   "Version": "2012-10-17",
+       3   "Statement": [
+       4     {
+       5       "Sid": "VPCFullLifecycle",
+       6       "Effect": "Allow",
+       7       "Action": [
+       8         "ec2:CreateVpc",
+       9         "ec2:DeleteVpc",
+      10         "ec2:DescribeVpcs",
+     … +114 lines (ctrl+o to expand)
+
+● Write(~/Desktop/Nexal/fund_raising/fundraising-platform-backend/aws-policies/b
+       urger-infra-compute.json)
+  ⎿  Wrote 144 lines to ../aws-policies/burger-infra-compute.json
+       1 {
+       2   "Version": "2012-10-17",
+       3   "Statement": [
+       4     {
+       5       "Sid": "ECSFullLifecycle",
+       6       "Effect": "Allow",
+       7       "Action": [
+       8         "ecs:CreateCluster",
+       9         "ecs:DeleteCluster",
+      10         "ecs:DescribeClusters",
+     … +134 lines (ctrl+o to expand)
+
+● Write(~/Desktop/Nexal/fund_raising/fundraising-platform-backend/aws-policies/b
+       urger-infra-data.json)
+  ⎿  Wrote 246 lines to ../aws-policies/burger-infra-data.json
+       1 {
+       2   "Version": "2012-10-17",
+       3   "Statement": [
+       4     {
+       5       "Sid": "RDSFullLifecycle",
+       6       "Effect": "Allow",
+       7       "Action": [
+       8         "rds:CreateDBInstance",
+       9         "rds:ModifyDBInstance",
+      10         "rds:RebootDBInstance",
+     … +236 lines (ctrl+o to expand)
+
+● Write(~/Desktop/Nexal/fund_raising/fundraising-platform-backend/aws-policies/b
+       urger-infra-monitoring.json)
+  ⎿  Wrote 157 lines to ../aws-policies/burger-infra-monitoring.json
+       1 {
+       2   "Version": "2012-10-17",
+       3   "Statement": [
+       4     {
+       5       "Sid": "CloudWatchLogs",
+       6       "Effect": "Allow",
+       7       "Action": [
+       8         "logs:CreateLogGroup",
+       9         "logs:DeleteLogGroup",
+      10         "logs:PutRetentionPolicy",
+     … +147 lines (ctrl+o to expand)
+
+● Write(~/Desktop/Nexal/fund_raising/fundraising-platform-backend/aws-policies/b
+       urger-infra-cdn.json)
+  ⎿  Wrote 104 lines to ../aws-policies/burger-infra-cdn.json
+       1 {
+       2   "Version": "2012-10-17",
+       3   "Statement": [
+       4     {
+       5       "Sid": "CloudFrontFullLifecycle",
+       6       "Effect": "Allow",
+       7       "Action": [
+       8         "cloudfront:CreateDistribution",
+       9         "cloudfront:UpdateDistribution",
+      10         "cloudfront:DeleteDistribution",
+     … +94 lines (ctrl+o to expand)
+
+● Write(~/Desktop/Nexal/fund_raising/fundraising-platform-backend/aws-policies/b
+       urger-infra-messaging.json)
+  ⎿  Wrote 122 lines to ../aws-policies/burger-infra-messaging.json
+       1 {
+       2   "Version": "2012-10-17",
+       3   "Statement": [
+       4     {
+       5       "Sid": "SQSManagement",
+       6       "Effect": "Allow",
+       7       "Action": [
+       8         "sqs:CreateQueue",
+       9         "sqs:DeleteQueue",
+      10         "sqs:GetQueueAttributes",
+     … +112 lines (ctrl+o to expand)
+
+● Write(~/Desktop/Nexal/fund_raising/fundraising-platform-backend/aws-policies/b
+       urger-infra-kms.json)
+  ⎿  Wrote 69 lines to ../aws-policies/burger-infra-kms.json
+       1 {
+       2   "Version": "2012-10-17",
+       3   "Statement": [
+       4     {
+       5       "Sid": "KMSManagement",
+       6       "Effect": "Allow",
+       7       "Action": [
+       8         "kms:CreateKey",
+       9         "kms:DescribeKey",
+      10         "kms:ListKeys",
+     … +59 lines (ctrl+o to expand)
+
+● All 8 policy files saved. Here's the complete overview:
+
+  ---
+  8 IAM Policies — Full Lifecycle Coverage
+
+  #: 1
+  Policy Name: BurgerInfraCore
+  Covers: IAM roles, ACM, Route 53, Cost Explorer, STS, self-manage access keys
+  Key Scoping: Roles: burger-*, Keys: nexa_lance only
+  ────────────────────────────────────────
+  #: 2
+  Policy Name: BurgerInfraNetworking
+  Covers: VPC, subnets, NAT gateway, Elastic IPs, route tables, security groups,
+
+    VPC flow logs, VPC endpoints, Cloud Map
+  Key Scoping: —
+  ────────────────────────────────────────
+  #: 3
+  Policy Name: BurgerInfraCompute
+  Covers: ECS Fargate (full + exec), ECR, ALB, Auto Scaling
+  Key Scoping: ECR: burger-* repos
+  ────────────────────────────────────────
+  #: 4
+  Policy Name: BurgerInfraData
+  Covers: RDS MySQL, S3, ElastiCache, AWS Backup
+  Key Scoping: RDS: db.t3.micro/small only, Prod RDS delete DENIED, S3:
+  burger-*,
+    Cache: cache.t3.micro
+  ────────────────────────────────────────
+  #: 5
+  Policy Name: BurgerInfraMonitoring
+  Covers: CloudWatch logs/metrics/alarms/dashboards, SSM Parameter Store,
+  Secrets
+    Manager, ECS Exec (SSM sessions)
+  Key Scoping: Logs: burger-*, SSM: /burger/*, Secrets: burger-*
+  ────────────────────────────────────────
+  #: 6
+  Policy Name: BurgerInfraCDN
+  Covers: CloudFront (full), WAFv2
+  Key Scoping: —
+  ────────────────────────────────────────
+  #: 7
+  Policy Name: BurgerInfraMessaging
+  Covers: SQS, SNS, SES
+  Key Scoping: SQS/SNS: burger-*
+  ────────────────────────────────────────
+  #: 8
+  Policy Name: BurgerInfraKMS
+  Covers: KMS encryption, Resource Groups, AWS Health
+  Key Scoping: —
+
+  Lifecycle Phases Covered
+
+  ┌───────────────────┬─────────────────────────────────────────────────────┐
+  │       Phase       │                      Services                       │
+  ├───────────────────┼─────────────────────────────────────────────────────┤
+  │ Initial Setup     │ VPC, RDS, S3, ECR, ECS, ALB, CloudFront, ACM, Route │
+  │                   │  53, IAM roles                                      │
+  ├───────────────────┼─────────────────────────────────────────────────────┤
+  │ CI/CD Deployments │ ECR push, ECS update service, CloudFront            │
+  │                   │ invalidation                                        │
+  ├───────────────────┼─────────────────────────────────────────────────────┤
+  │ Monitoring &      │ CloudWatch logs/metrics/alarms, ECS exec into       │
+  │ Debugging         │ containers, RDS logs                                │
+  ├───────────────────┼─────────────────────────────────────────────────────┤
+  │ Scaling           │ ECS auto-scaling, RDS instance modifications        │
+  ├───────────────────┼─────────────────────────────────────────────────────┤
+  │ Maintenance       │ RDS snapshots/restore, S3 lifecycle, ECR image      │
+  │                   │ cleanup, secret rotation                            │
+  ├───────────────────┼─────────────────────────────────────────────────────┤
+  │ Disaster Recovery │ RDS snapshot restore, AWS Backup                    │
+  ├───────────────────┼─────────────────────────────────────────────────────┤
+  │ Future Proofing   │ ElastiCache, SQS, SNS, SES, WAF, Secrets Manager,   │
+  │                   │ KMS                                                 │
+  └───────────────────┴─────────────────────────────────────────────────────┘
+
+  Safety Guardrails
+
+  - Production RDS (burger-prod-*) cannot be deleted — explicit Deny
+  - RDS locked to db.t3.micro / db.t3.small only
+  - ElastiCache locked to cache.t3.micro only
+  - All data resources scoped to burger-* prefix
+  - IAM roles scoped to burger-* — no privilege escalation
+  - 8 policies (within AWS limit of 10 per user)
+
+  Command for the Client
+
+  # Create all 8 policies and attach to nexa_lance
+  cd aws-policies
+
+  for POLICY in burger-infra-core burger-infra-networking burger-infra-compute \
+    burger-infra-data burger-infra-monitoring burger-infra-cdn \
+    burger-infra-messaging burger-infra-kms; do
+
+    POLICY_NAME=$(echo $POLICY | sed 's/-/_/g; s/\b\(.\)/\u\1/g; s/_//g')
+
+    aws iam create-policy \
+      --policy-name "$POLICY_NAME" \
+      --policy-document "file://${POLICY}.json" \
+      --tags Key=Project,Value=burger Key=Environment,Value=prod
+
+    aws iam attach-user-policy \
+      --user-name nexa_lance \
+      --policy-arn "arn:aws:iam::391824190859:policy/${POLICY_NAME}"
+  done
+
+  Or if the client prefers, they can create/attach them one by one using the
+  individual JSON files in the aws-policies/ folder.
+
+  Once these are attached and you have the access keys, we can start building
+  infrastructure immediately — zero permission issues.
+
+✻ Crunched for 6m 26s
+
+❯ do not write code just provide me permission names that client can understand 
+ and update visually what we need to do here                                    
+
+● What the Client Needs to Do
+
+  The nexa_lance user needs permissions for the following AWS services. The
+  client can add these through AWS Console → IAM → Users → nexa_lance → 
+  Permissions → Add permissions.
+
+  ---
+  Option 1: Simplest — AWS Managed Policies (Recommended for Client)
+
+  Tell the client to attach these AWS-managed policies to nexa_lance:
+
+  ┌─────┬──────────────────────────────────────┬─────────────────────────────┐
+  │  #  │       AWS Managed Policy Name        │       What It Covers        │
+  ├─────┼──────────────────────────────────────┼─────────────────────────────┤
+  │ 1   │ AmazonECS_FullAccess                 │ ECS Fargate — clusters,     │
+  │     │                                      │ services, task definitions  │
+  ├─────┼──────────────────────────────────────┼─────────────────────────────┤
+  │ 2   │ AmazonEC2ContainerRegistryFullAccess │ ECR — Docker image          │
+  │     │                                      │ repositories                │
+  ├─────┼──────────────────────────────────────┼─────────────────────────────┤
+  │ 3   │ AmazonRDSFullAccess                  │ RDS — MySQL database        │
+  ├─────┼──────────────────────────────────────┼─────────────────────────────┤
+  │ 4   │ AmazonS3FullAccess                   │ S3 — File/photo storage     │
+  │     │                                      │ bucket                      │
+  ├─────┼──────────────────────────────────────┼─────────────────────────────┤
+  │ 5   │ CloudFrontFullAccess                 │ CloudFront — CDN            │
+  │     │                                      │ distribution                │
+  ├─────┼──────────────────────────────────────┼─────────────────────────────┤
+  │ 6   │ ElasticLoadBalancingFullAccess       │ ALB — Load balancer         │
+  ├─────┼──────────────────────────────────────┼─────────────────────────────┤
+  │ 7   │ AmazonVPCFullAccess                  │ VPC — Networking, security  │
+  │     │                                      │ groups, subnets             │
+  ├─────┼──────────────────────────────────────┼─────────────────────────────┤
+  │ 8   │ AWSCertificateManagerFullAccess      │ ACM — Free SSL certificates │
+  ├─────┼──────────────────────────────────────┼─────────────────────────────┤
+  │ 9   │ AmazonRoute53FullAccess              │ Route 53 — DNS management   │
+  ├─────┼──────────────────────────────────────┼─────────────────────────────┤
+  │ 10  │ CloudWatchFullAccessV2               │ CloudWatch — Logs, metrics, │
+  │     │                                      │  alarms                     │
+  ├─────┼──────────────────────────────────────┼─────────────────────────────┤
+  │ 11  │ AmazonSSMFullAccess                  │ SSM Parameter Store —       │
+  │     │                                      │ Secrets & config            │
+  ├─────┼──────────────────────────────────────┼─────────────────────────────┤
+  │ 12  │ IAMFullAccess                        │ IAM — Create roles for ECS  │
+  │     │                                      │ tasks                       │
+  └─────┴──────────────────────────────────────┴─────────────────────────────┘
+
+  Note: AWS allows max 10 managed policies per user. If the client hits this 
+  limit, they can create a Group (e.g., burger-deployers), attach the policies 
+  to the group, and add nexa_lance to that group — groups have no policy limit.
+
+  ---
+  Option 2: Even Simpler — One Policy
+
+  If the client trusts this user fully for this project, they can just attach:
+
+  PowerUserAccess (AWS managed)
+
+  This gives access to everything except IAM user/group management. Then add
+  IAMFullAccess separately for the ECS role creation.
+
+  That's just 2 policies total.
+
+  ---
+  What to Tell the Client
+
+  "Please go to IAM → Users → nexa_lance → Permissions → Add permissions → 
+  Attach policies directly, and attach these AWS managed policies:
+
+  1. AmazonECS_FullAccess
+  2. AmazonEC2ContainerRegistryFullAccess
+  3. AmazonRDSFullAccess
+  4. AmazonS3FullAccess
+  5. CloudFrontFullAccess
+  6. ElasticLoadBalancingFullAccess
+  7. AmazonVPCFullAccess
+  8. AWSCertificateManagerFullAccess
+  9. AmazonRoute53FullAccess
+  10. CloudWatchFullAccessV2
+
+  Since there's a 10-policy limit per user, please create a Group called 
+  burger-deployers, attach AmazonSSMFullAccess and IAMFullAccess to the group, 
+  then add nexa_lance to that group.
+
+  Also please create access keys for nexa_lance: go to IAM → Users → nexa_lance 
+  → Security credentials → Create access key → CLI and share the Access Key ID 
+  and Secret."
+
+  ---
+  Why Each Service is Needed
+
+  ┌────────────┬─────────────────────────────────────────────────────────────┐
+  │  Service   │                       Why We Need It                        │
+  ├────────────┼─────────────────────────────────────────────────────────────┤
+  │ ECS        │ Runs the backend & frontend as Docker containers            │
+  ├────────────┼─────────────────────────────────────────────────────────────┤
+  │ ECR        │ Stores the Docker images we build                           │
+  ├────────────┼─────────────────────────────────────────────────────────────┤
+  │ RDS        │ MySQL database for the application                          │
+  ├────────────┼─────────────────────────────────────────────────────────────┤
+  │ S3         │ Stores uploaded photos and screenshots                      │
+  ├────────────┼─────────────────────────────────────────────────────────────┤
+  │ CloudFront │ CDN to serve photos/assets fast globally                    │
+  ├────────────┼─────────────────────────────────────────────────────────────┤
+  │ ALB (ELB)  │ Routes traffic to the correct container                     │
+  ├────────────┼─────────────────────────────────────────────────────────────┤
+  │ VPC        │ Networking — security groups, subnets, routing              │
+  ├────────────┼─────────────────────────────────────────────────────────────┤
+  │ ACM        │ Free SSL/HTTPS certificates                                 │
+  ├────────────┼─────────────────────────────────────────────────────────────┤
+  │ Route 53   │ Domain name DNS management                                  │
+  ├────────────┼─────────────────────────────────────────────────────────────┤
+  │ CloudWatch │ Application logs and monitoring                             │
+  ├────────────┼─────────────────────────────────────────────────────────────┤
+  │ SSM        │ Securely stores API keys, DB passwords, secrets             │
+  ├────────────┼─────────────────────────────────────────────────────────────┤
+  │ IAM        │ Creates service roles so ECS can pull images & read secrets │
+  └────────────┴─────────────────────────────────────────────────────────────┘

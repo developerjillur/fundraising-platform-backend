@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerModule } from '@nestjs/throttler';
 
+import { S3Module } from './common/services/s3.module';
 import { AuthModule } from './domain/auth/auth.module';
 import { FundraisingModule } from './domain/fundraising/fundraising.module';
 import { PhotoModule } from './domain/photo/photo.module';
@@ -20,6 +21,7 @@ import { SettingsModule } from './domain/settings/settings.module';
     ConfigModule.forRoot({ isGlobal: true }),
     EventEmitterModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
+    S3Module,
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
