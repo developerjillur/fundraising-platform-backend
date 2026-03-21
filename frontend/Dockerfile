@@ -3,10 +3,8 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Enable standalone mode via env var or it can be set in next.config.ts
 ENV NEXT_PRIVATE_STANDALONE=true
 
-# Add ARG and ENV so it's baked into the Next.js bundle during build
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
@@ -17,15 +15,13 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM node:20-alpine AS runner
+FROM node:20-alpine
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Next.js standalone output contains everything needed to run
-# We just need to copy the standalone folder and static files
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static

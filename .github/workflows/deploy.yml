@@ -1,0 +1,107 @@
+name: Deploy to AWS ECS
+
+on:
+  push:
+    branches: [main]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: 391824190859.dkr.ecr.us-east-1.amazonaws.com
+  ECS_CLUSTER: burger-prod
+  ALB_URL: http://burger-prod-alb-1319169104.us-east-1.elb.amazonaws.com
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.changes.outputs.backend }}
+      frontend: ${{ steps.changes.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+
+  deploy-backend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push backend image
+        working-directory: backend
+        run: |
+          docker build -t $ECR_REGISTRY/burger-backend:latest -t $ECR_REGISTRY/burger-backend:${{ github.sha }} .
+          docker push $ECR_REGISTRY/burger-backend:latest
+          docker push $ECR_REGISTRY/burger-backend:${{ github.sha }}
+
+      - name: Deploy backend to ECS
+        run: |
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service burger-prod-backend \
+            --force-new-deployment
+
+      - name: Wait for backend deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster $ECS_CLUSTER \
+            --services burger-prod-backend
+
+  deploy-frontend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push frontend image
+        working-directory: frontend
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL=${{ env.ALB_URL }}/api \
+            -t $ECR_REGISTRY/burger-frontend:latest \
+            -t $ECR_REGISTRY/burger-frontend:${{ github.sha }} .
+          docker push $ECR_REGISTRY/burger-frontend:latest
+          docker push $ECR_REGISTRY/burger-frontend:${{ github.sha }}
+
+      - name: Deploy frontend to ECS
+        run: |
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service burger-prod-frontend \
+            --force-new-deployment
+
+      - name: Wait for frontend deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster $ECS_CLUSTER \
+            --services burger-prod-frontend
