@@ -1,8 +1,9 @@
 name: Deploy to AWS ECS
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch: # Manual trigger only — enable push trigger once AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY secrets are added
+  # push:
+  #   branches: [main]
 
 env:
   AWS_REGION: us-east-1
