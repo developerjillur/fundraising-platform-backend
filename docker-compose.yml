@@ -49,6 +49,23 @@ services:
     depends_on:
       - backend
 
+  obs-service:
+    build:
+      context: ./obs-service
+      dockerfile: Dockerfile
+    container_name: burger-obs-service
+    restart: unless-stopped
+    environment:
+      - BACKEND_API_URL=http://backend:3000/api
+      - OBS_WS_URL=ws://host.docker.internal:4455
+      - OBS_WS_PASSWORD=${OBS_WS_PASSWORD:-}
+      - API_POLL_INTERVAL_MS=3000
+      - SCREENSHOT_ENABLED=true
+    depends_on:
+      - backend
+    networks:
+      - default
+
 volumes:
   mysql_data:
 

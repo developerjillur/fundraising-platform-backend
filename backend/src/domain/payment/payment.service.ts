@@ -32,6 +32,9 @@ export class PaymentService {
     package_type: string;
     photo_storage_path?: string;
     origin?: string;
+    moderation_status?: 'approved' | 'rejected' | 'pending';
+    moderation_reason?: string;
+    photo_url?: string;
   }) {
     const { name, email, package_type, photo_storage_path, origin } = body;
     if (!name || !email) throw new BadRequestException('Name and email required');
@@ -62,10 +65,11 @@ export class PaymentService {
       package_type,
       amount_cents: pkg.price_cents,
       display_duration_seconds: pkg.display_duration_seconds,
-      photo_url: photoUrl,
+      photo_url: body.photo_url || photoUrl,
       photo_storage_path,
       payment_status: 'pending',
-      moderation_status: 'approved',
+      moderation_status: body.moderation_status || 'pending',
+      moderation_reason: body.moderation_reason || null,
     });
     await this.supporterRepo.save(supporter);
 

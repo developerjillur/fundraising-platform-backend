@@ -16,6 +16,34 @@ export class PhotoController {
     return this.photoService.getActivePackages();
   }
 
+  @Post('reupload/:supporterId')
+  @ApiOperation({ summary: 'Re-upload a photo after moderation rejection (public)' })
+  @ApiParam({ name: 'supporterId', description: 'Supporter ID from rejection email' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+      required: ['file'],
+    },
+  })
+  @UseInterceptors(FileInterceptor('file', {
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+      const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      cb(null, allowed.includes(file.mimetype));
+    },
+  }))
+  async reuploadPhoto(
+    @Param('supporterId') supporterId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) return { error: 'No valid file uploaded' };
+    return this.photoService.reuploadPhoto(supporterId, file);
+  }
+
   @Post('upload')
   @ApiOperation({ summary: 'Upload a photo (public, multipart)' })
   @ApiConsumes('multipart/form-data')
@@ -44,8 +72,13 @@ export class PhotoController {
   }))
   async uploadPhoto(@UploadedFile() file: Express.Multer.File) {
     if (!file) return { error: 'No valid file uploaded' };
-    const result = await this.photoService.saveUploadedFile(file);
-    return result;
+    const result = await this.photoService.moderateAndSave(file);
+    return {
+      path: result.path,
+      url: result.url,
+      moderation_status: result.moderation.approved ? 'approved' : 'rejected',
+      moderation_reason: result.moderation.reason,
+    };
   }
 
   @UseGuards(JwtAuthGuard)

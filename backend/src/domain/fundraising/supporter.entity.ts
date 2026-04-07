@@ -53,6 +53,9 @@ export class Supporter {
   @Column({ type: 'text', nullable: true })
   display_screenshot_url: string;
 
+  @Column({ type: 'int', default: 0 })
+  reupload_count: number;
+
   @CreateDateColumn()
   created_at: Date;
 

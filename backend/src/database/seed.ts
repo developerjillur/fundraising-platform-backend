@@ -71,6 +71,38 @@ async function seed() {
     console.log('  Created default site settings');
   }
 
+  // 4b. Milestone 2 settings (insert if missing)
+  const m2Settings = [
+    ['moderation_enabled', 'true', 'moderation', 'Enable AWS Rekognition content moderation'],
+    ['rekognition_min_confidence', '75', 'moderation', 'Minimum confidence threshold for Rekognition (0-100)'],
+    ['moderation_fail_open', 'true', 'moderation', 'Approve photos when moderation service is unavailable'],
+    ['max_reupload_attempts', '3', 'moderation', 'Maximum re-upload attempts per supporter'],
+    ['rejection_message', 'Your photo was flagged by our content filter. Please upload a different photo.', 'moderation', 'Default rejection message'],
+    ['premium_badge_enabled', 'true', 'stream', 'Show premium badge overlay on stream and screenshots'],
+    ['obs_poll_interval_ms', '3000', 'stream', 'How often OBS service polls for next queue item (ms)'],
+    ['obs_transition_type', 'fade', 'stream', 'OBS scene transition type (fade, cut, slide)'],
+    ['obs_transition_duration_ms', '500', 'stream', 'OBS transition duration in milliseconds'],
+  ];
+  for (const [key, value, category, description] of m2Settings) {
+    const exists = await qr.query('SELECT COUNT(*) as c FROM site_settings WHERE `key` = ?', [key]);
+    if (Number(exists[0].c) === 0) {
+      await qr.query(
+        'INSERT INTO site_settings (`key`, value, category, description) VALUES (?, ?, ?, ?)',
+        [key, value, category, description],
+      );
+    }
+  }
+  console.log('  Milestone 2 settings ensured');
+
+  // Update photo_rejected template to include reupload_url variable (only if it doesn't already have it)
+  const rejectedTmpl = await qr.query("SELECT body_html FROM email_templates WHERE template_key = 'photo_rejected'");
+  if (rejectedTmpl.length > 0 && !rejectedTmpl[0].body_html?.includes('reupload_url')) {
+    await qr.query(
+      "UPDATE email_templates SET body_html = '<h1>Hi {{name}}</h1><p>Unfortunately your photo was not approved. Reason: {{reason}}</p><p><a href=\"{{reupload_url}}\">Click here to upload a different photo</a></p>', variables = ? WHERE template_key = 'photo_rejected'",
+      [JSON.stringify(['name', 'reason', 'reupload_url'])],
+    );
+  }
+
   // 5. Email templates
   const tmplExists = await qr.query('SELECT COUNT(*) as c FROM email_templates');
   if (Number(tmplExists[0].c) === 0) {

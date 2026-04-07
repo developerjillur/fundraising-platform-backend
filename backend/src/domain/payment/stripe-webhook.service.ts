@@ -75,26 +75,64 @@ export class StripeWebhookService {
 
     supporter.payment_status = 'completed';
     supporter.stripe_payment_intent_id = session.payment_intent as string;
+
+    // Only add to queue if moderation approved
+    if (supporter.moderation_status === 'approved') {
+      const maxPos = await this.queueRepo
+        .createQueryBuilder('q')
+        .select('MAX(q.queue_position)', 'max')
+        .getRawOne();
+      const nextPos = (maxPos?.max || 0) + 1;
+
+      const queueItem = this.queueRepo.create({
+        supporter_id: supporter.id,
+        photo_url: supporter.photo_url || '',
+        photo_storage_path: supporter.photo_storage_path,
+        package_type: supporter.package_type || 'standard',
+        display_duration_seconds: supporter.display_duration_seconds || 10,
+        has_badge: supporter.package_type === 'premium',
+        queue_position: nextPos,
+        status: 'waiting',
+      });
+      await this.queueRepo.save(queueItem);
+      supporter.display_status = 'queued';
+    } else if (supporter.moderation_status === 'rejected') {
+      try {
+        await this.notificationService.sendTemplateEmail(
+          'photo_rejected',
+          supporter.email,
+          supporter.name,
+          {
+            name: supporter.name,
+            reason: supporter.moderation_reason || 'Content policy violation',
+            reupload_url: `${process.env.FRONTEND_URL || 'http://localhost:8080'}/reupload/${supporter.id}`,
+          },
+        );
+      } catch (e) {
+        this.logger.warn('Rejection email failed', e);
+      }
+    } else {
+      // moderation_status is 'pending' — moderation might be disabled, queue anyway
+      const maxPos = await this.queueRepo
+        .createQueryBuilder('q')
+        .select('MAX(q.queue_position)', 'max')
+        .getRawOne();
+      const nextPos = (maxPos?.max || 0) + 1;
+
+      const queueItem = this.queueRepo.create({
+        supporter_id: supporter.id,
+        photo_url: supporter.photo_url || '',
+        photo_storage_path: supporter.photo_storage_path,
+        package_type: supporter.package_type || 'standard',
+        display_duration_seconds: supporter.display_duration_seconds || 10,
+        has_badge: supporter.package_type === 'premium',
+        queue_position: nextPos,
+        status: 'waiting',
+      });
+      await this.queueRepo.save(queueItem);
+      supporter.display_status = 'queued';
+    }
     await this.supporterRepo.save(supporter);
-
-    // Get next queue position
-    const maxPos = await this.queueRepo
-      .createQueryBuilder('q')
-      .select('MAX(q.queue_position)', 'max')
-      .getRawOne();
-    const nextPos = (maxPos?.max || 0) + 1;
-
-    const queueItem = this.queueRepo.create({
-      supporter_id: supporter.id,
-      photo_url: supporter.photo_url || '',
-      photo_storage_path: supporter.photo_storage_path,
-      package_type: supporter.package_type || 'standard',
-      display_duration_seconds: supporter.display_duration_seconds || 10,
-      has_badge: supporter.package_type === 'premium',
-      queue_position: nextPos,
-      status: 'waiting',
-    });
-    await this.queueRepo.save(queueItem);
 
     await this.fundraisingService.incrementStats(supporter.amount_cents, true);
     await this.fundraisingService.trackPurchase(

@@ -89,4 +89,9 @@ export class SettingsService {
   async getModerationApiKey(): Promise<string> {
     return (await this.get('moderation_api_key')) || this.configService.get('MODERATION_API_KEY', '');
   }
+
+  async getRekognitionMinConfidence(): Promise<number> {
+    const val = await this.get('rekognition_min_confidence', '75');
+    return parseInt(val, 10);
+  }
 }

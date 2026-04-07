@@ -5,6 +5,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerModule } from '@nestjs/throttler';
 
 import { S3Module } from './common/services/s3.module';
+import { ModerationModule } from './domain/moderation/moderation.module';
 import { AuthModule } from './domain/auth/auth.module';
 import { FundraisingModule } from './domain/fundraising/fundraising.module';
 import { PhotoModule } from './domain/photo/photo.module';
@@ -15,6 +16,7 @@ import { NotificationModule } from './domain/notification/notification.module';
 import { AdminModule } from './domain/admin/admin.module';
 import { HealthModule } from './domain/health/health.module';
 import { SettingsModule } from './domain/settings/settings.module';
+import { BadgeModule } from './domain/badge/badge.module';
 
 @Module({
   imports: [
@@ -22,6 +24,7 @@ import { SettingsModule } from './domain/settings/settings.module';
     EventEmitterModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     S3Module,
+    ModerationModule,
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -48,6 +51,7 @@ import { SettingsModule } from './domain/settings/settings.module';
     AdminModule,
     HealthModule,
     SettingsModule,
+    BadgeModule,
   ],
 })
 export class AppModule {}

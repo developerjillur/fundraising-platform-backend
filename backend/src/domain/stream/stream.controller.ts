@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Param, Sse } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
-import { Observable, interval, map, startWith } from 'rxjs';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiParam } from '@nestjs/swagger';
+import { Observable, interval, from, switchMap, map, startWith } from 'rxjs';
 import { StreamService } from './stream.service';
 
 @ApiTags('stream')
@@ -47,6 +47,13 @@ export class StreamController {
   @ApiResponse({ status: 200, description: 'Queue display data returned successfully.' })
   getQueueDisplay() {
     return this.streamService.getQueueDisplay();
+  }
+
+  @Get('queue/eta/:supporterId')
+  @ApiOperation({ summary: 'Get estimated display time for a supporter' })
+  @ApiParam({ name: 'supporterId', description: 'Supporter UUID' })
+  getEta(@Param('supporterId') supporterId: string) {
+    return this.streamService.calculateEta(supporterId);
   }
 
   @Get('queue/count')
@@ -108,7 +115,7 @@ export class StreamController {
   streamQueue(): Observable<MessageEvent> {
     return interval(3000).pipe(
       startWith(0),
-      map(() => this.streamService.getQueueDisplay()),
+      switchMap(() => from(this.streamService.getQueueDisplay())),
       map((data) => ({ data } as any)),
     );
   }

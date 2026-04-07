@@ -2,11 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { OnEvent } from '@nestjs/event-emitter';
 import { StreamQueue } from './stream-queue.entity';
 import { StreamEvent } from './stream-event.entity';
 import { Supporter } from '../fundraising/supporter.entity';
 import { SettingsService } from '../settings/settings.service';
 import { PhotoService } from '../photo/photo.service';
+import { BadgeService } from '../badge/badge.service';
 
 @Injectable()
 export class StreamService {
@@ -18,6 +20,7 @@ export class StreamService {
     @InjectRepository(Supporter) private supporterRepo: Repository<Supporter>,
     private settingsService: SettingsService,
     private photoService: PhotoService,
+    private badgeService: BadgeService,
     private dataSource: DataSource,
     private eventEmitter: EventEmitter2,
   ) {}
@@ -73,6 +76,7 @@ export class StreamService {
       has_badge: item.has_badge,
       queue_position: item.queue_position,
       status: item.status,
+      estimated_display_at: item.estimated_display_at,
       supporter_name: item.supporter?.name || 'Anonymous',
       supporter_email: item.supporter?.email,
       display_started_at: item.display_started_at,
@@ -175,14 +179,35 @@ export class StreamService {
   }
 
   async saveScreenshot(queueId: string, base64: string) {
-    const url = await this.photoService.saveScreenshot(base64, queueId);
+    const item = await this.queueRepo.findOne({
+      where: { id: queueId },
+      relations: ['supporter'],
+    });
+
+    let buffer: Buffer = Buffer.from(
+      base64.replace(/^data:image\/\w+;base64,/, ''),
+      'base64',
+    );
+
+    // Composite badge onto screenshot for premium supporters
+    if (item?.has_badge) {
+      buffer = await this.badgeService.compositeScreenshotWithBadge(buffer);
+    }
+
+    const { url } = await this.photoService.s3.upload(
+      buffer,
+      `${queueId}.png`,
+      'screenshots',
+      'image/png',
+    );
+
     await this.queueRepo.update(queueId, { screenshot_url: url });
 
-    const item = await this.queueRepo.findOne({ where: { id: queueId }, relations: ['supporter'] });
     if (item?.supporter) {
       item.supporter.display_screenshot_url = url;
       await this.supporterRepo.save(item.supporter);
     }
+
     return { screenshot_url: url };
   }
 
@@ -256,6 +281,54 @@ export class StreamService {
     this.eventEmitter.emit('queue.updated');
   }
 
+  async calculateEta(supporterId: string): Promise<{
+    queue_position: number | null;
+    items_ahead: number;
+    estimated_seconds: number;
+    estimated_display_at: Date | null;
+  }> {
+    const item = await this.queueRepo.findOne({
+      where: { supporter_id: supporterId, status: 'waiting' },
+    });
+
+    if (!item) {
+      return { queue_position: null, items_ahead: 0, estimated_seconds: 0, estimated_display_at: null };
+    }
+
+    // Count items ahead (premium priority, then position)
+    const itemsAhead = await this.queueRepo
+      .createQueryBuilder('q')
+      .where('q.status = :status', { status: 'waiting' })
+      .andWhere(
+        '(CASE WHEN q.package_type = \'premium\' THEN 0 ELSE 1 END < CASE WHEN :pkgType = \'premium\' THEN 0 ELSE 1 END) OR ' +
+        '(CASE WHEN q.package_type = \'premium\' THEN 0 ELSE 1 END = CASE WHEN :pkgType = \'premium\' THEN 0 ELSE 1 END AND q.queue_position < :pos)',
+        { pkgType: item.package_type, pos: item.queue_position },
+      )
+      .getCount();
+
+    // Average display duration from recent items
+    const avgResult = await this.queueRepo
+      .createQueryBuilder('q')
+      .select('AVG(q.display_duration_seconds)', 'avg')
+      .where('q.status = :status', { status: 'displayed' })
+      .andWhere('q.display_ended_at IS NOT NULL')
+      .getRawOne();
+
+    const avgDuration = parseFloat(avgResult?.avg) || 15;
+    const estimatedSeconds = Math.ceil(itemsAhead * avgDuration);
+    const estimatedDisplayAt = new Date(Date.now() + estimatedSeconds * 1000);
+
+    item.estimated_display_at = estimatedDisplayAt;
+    await this.queueRepo.save(item);
+
+    return {
+      queue_position: item.queue_position,
+      items_ahead: itemsAhead,
+      estimated_seconds: estimatedSeconds,
+      estimated_display_at: estimatedDisplayAt,
+    };
+  }
+
   async clearDisplayed() {
     await this.queueRepo.delete({ status: 'displayed' });
     this.eventEmitter.emit('queue.updated');
@@ -278,5 +351,33 @@ export class StreamService {
       order: { queue_position: 'ASC' },
       take: limit,
     });
+  }
+
+  @OnEvent('photo.approved_after_reupload')
+  async handleReuploadApproved(payload: {
+    supporterId: string;
+    photoUrl: string;
+    photoStoragePath: string;
+    packageType: string;
+    displayDurationSeconds: number;
+  }) {
+    const maxPos = await this.queueRepo
+      .createQueryBuilder('q')
+      .select('MAX(q.queue_position)', 'max')
+      .getRawOne();
+    const nextPos = (maxPos?.max || 0) + 1;
+
+    const queueItem = this.queueRepo.create({
+      supporter_id: payload.supporterId,
+      photo_url: payload.photoUrl,
+      photo_storage_path: payload.photoStoragePath,
+      package_type: payload.packageType as 'standard' | 'premium',
+      display_duration_seconds: payload.displayDurationSeconds || 10,
+      has_badge: payload.packageType === 'premium',
+      queue_position: nextPos,
+      status: 'waiting',
+    });
+    await this.queueRepo.save(queueItem);
+    this.eventEmitter.emit('queue.updated');
   }
 }
