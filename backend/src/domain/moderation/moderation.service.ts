@@ -21,13 +21,16 @@ export class ModerationService {
     private configService: ConfigService,
     private settingsService: SettingsService,
   ) {
-    this.rekognition = new RekognitionClient({
+    const clientConfig: Record<string, any> = {
       region: this.configService.get('AWS_S3_REGION', 'us-east-1'),
-      credentials: {
-        accessKeyId: this.configService.get('AWS_ACCESS_KEY_ID', ''),
-        secretAccessKey: this.configService.get('AWS_SECRET_ACCESS_KEY', ''),
-      },
-    });
+    };
+    // Use explicit credentials if provided, otherwise fall back to IAM task role
+    const accessKey = this.configService.get('AWS_ACCESS_KEY_ID', '');
+    const secretKey = this.configService.get('AWS_SECRET_ACCESS_KEY', '');
+    if (accessKey && secretKey) {
+      clientConfig.credentials = { accessKeyId: accessKey, secretAccessKey: secretKey };
+    }
+    this.rekognition = new RekognitionClient(clientConfig);
   }
 
   async moderateImage(imageBuffer: Buffer): Promise<ModerationResult> {

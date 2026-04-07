@@ -13,13 +13,13 @@ export class S3Service {
     this.region = this.config.get('AWS_S3_REGION', 'us-east-1');
     this.bucket = this.config.get('AWS_S3_BUCKET', '');
 
-    this.s3 = new S3Client({
-      region: this.region,
-      credentials: {
-        accessKeyId: this.config.get('AWS_ACCESS_KEY_ID', ''),
-        secretAccessKey: this.config.get('AWS_SECRET_ACCESS_KEY', ''),
-      },
-    });
+    const clientConfig: Record<string, any> = { region: this.region };
+    const accessKey = this.config.get('AWS_ACCESS_KEY_ID', '');
+    const secretKey = this.config.get('AWS_SECRET_ACCESS_KEY', '');
+    if (accessKey && secretKey) {
+      clientConfig.credentials = { accessKeyId: accessKey, secretAccessKey: secretKey };
+    }
+    this.s3 = new S3Client(clientConfig);
   }
 
   async upload(
