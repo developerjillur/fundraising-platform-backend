@@ -7,12 +7,14 @@ import { StreamService } from './stream.service';
 import { StreamController } from './stream.controller';
 import { FundraisingModule } from '../fundraising/fundraising.module';
 import { PhotoModule } from '../photo/photo.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([StreamQueue, StreamEvent, Supporter]),
     forwardRef(() => FundraisingModule),
     PhotoModule,
+    NotificationModule,
   ],
   controllers: [StreamController],
   providers: [StreamService],

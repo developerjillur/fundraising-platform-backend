@@ -8,6 +8,8 @@ import { StreamQueue } from '../stream/stream-queue.entity';
 import { FundraisingService } from '../fundraising/fundraising.service';
 import { NotificationService } from '../notification/notification.service';
 import { SettingsService } from '../settings/settings.service';
+import { StreamService } from '../stream/stream.service';
+import { OrderItem } from '../merchandise/order-item.entity';
 
 @Injectable()
 export class StripeWebhookService {
@@ -17,9 +19,11 @@ export class StripeWebhookService {
     @InjectRepository(Supporter) private supporterRepo: Repository<Supporter>,
     @InjectRepository(Order) private orderRepo: Repository<Order>,
     @InjectRepository(StreamQueue) private queueRepo: Repository<StreamQueue>,
+    @InjectRepository(OrderItem) private orderItemRepo: Repository<OrderItem>,
     private fundraisingService: FundraisingService,
     private notificationService: NotificationService,
     private settingsService: SettingsService,
+    private streamService: StreamService,
     private dataSource: DataSource,
   ) {}
 
@@ -67,6 +71,27 @@ export class StripeWebhookService {
     }
   }
 
+  private async addSupporterToQueue(supporter: Supporter): Promise<void> {
+    const maxPos = await this.queueRepo
+      .createQueryBuilder('q')
+      .select('MAX(q.queue_position)', 'max')
+      .getRawOne();
+    const nextPos = (maxPos?.max || 0) + 1;
+
+    const queueItem = this.queueRepo.create({
+      supporter_id: supporter.id,
+      photo_url: supporter.photo_url || '',
+      photo_storage_path: supporter.photo_storage_path,
+      package_type: supporter.package_type || 'standard',
+      display_duration_seconds: supporter.display_duration_seconds || 10,
+      has_badge: supporter.package_type === 'premium',
+      queue_position: nextPos,
+      status: 'waiting',
+    });
+    await this.queueRepo.save(queueItem);
+    supporter.display_status = 'queued';
+  }
+
   private async handlePhotoPayment(session: Stripe.Checkout.Session) {
     const supporter = await this.supporterRepo.findOne({
       where: { stripe_checkout_session_id: session.id },
@@ -76,61 +101,14 @@ export class StripeWebhookService {
     supporter.payment_status = 'completed';
     supporter.stripe_payment_intent_id = session.payment_intent as string;
 
-    // Only add to queue if moderation approved
-    if (supporter.moderation_status === 'approved') {
-      const maxPos = await this.queueRepo
-        .createQueryBuilder('q')
-        .select('MAX(q.queue_position)', 'max')
-        .getRawOne();
-      const nextPos = (maxPos?.max || 0) + 1;
+    let wasQueued = false;
+    let wasRejected = false;
 
-      const queueItem = this.queueRepo.create({
-        supporter_id: supporter.id,
-        photo_url: supporter.photo_url || '',
-        photo_storage_path: supporter.photo_storage_path,
-        package_type: supporter.package_type || 'standard',
-        display_duration_seconds: supporter.display_duration_seconds || 10,
-        has_badge: supporter.package_type === 'premium',
-        queue_position: nextPos,
-        status: 'waiting',
-      });
-      await this.queueRepo.save(queueItem);
-      supporter.display_status = 'queued';
+    if (supporter.moderation_status === 'approved' || !supporter.moderation_status || supporter.moderation_status === 'pending') {
+      await this.addSupporterToQueue(supporter);
+      wasQueued = true;
     } else if (supporter.moderation_status === 'rejected') {
-      try {
-        await this.notificationService.sendTemplateEmail(
-          'photo_rejected',
-          supporter.email,
-          supporter.name,
-          {
-            name: supporter.name,
-            reason: supporter.moderation_reason || 'Content policy violation',
-            reupload_url: `${process.env.FRONTEND_URL || 'http://localhost:8080'}/reupload/${supporter.id}`,
-          },
-        );
-      } catch (e) {
-        this.logger.warn('Rejection email failed', e);
-      }
-    } else {
-      // moderation_status is 'pending' — moderation might be disabled, queue anyway
-      const maxPos = await this.queueRepo
-        .createQueryBuilder('q')
-        .select('MAX(q.queue_position)', 'max')
-        .getRawOne();
-      const nextPos = (maxPos?.max || 0) + 1;
-
-      const queueItem = this.queueRepo.create({
-        supporter_id: supporter.id,
-        photo_url: supporter.photo_url || '',
-        photo_storage_path: supporter.photo_storage_path,
-        package_type: supporter.package_type || 'standard',
-        display_duration_seconds: supporter.display_duration_seconds || 10,
-        has_badge: supporter.package_type === 'premium',
-        queue_position: nextPos,
-        status: 'waiting',
-      });
-      await this.queueRepo.save(queueItem);
-      supporter.display_status = 'queued';
+      wasRejected = true;
     }
     await this.supporterRepo.save(supporter);
 
@@ -139,21 +117,68 @@ export class StripeWebhookService {
       supporter.email, supporter.amount_cents, true, supporter.id,
     );
 
-    // Best-effort notifications
+    // Compute full metadata for Klaviyo + email
+    const cs = await this.fundraisingService.getCustomerStatsByEmail(supporter.email);
+    const eta = wasQueued
+      ? await this.streamService.calculateEta(supporter.id).catch(() => null)
+      : null;
+    const cumulativeCents = cs ? Number(cs.total_spent_cents) : supporter.amount_cents;
+
+    // Klaviyo: Photo Purchased (or Photo Rejected)
     try {
-      await this.notificationService.sendKlaviyoEvent('Photo Purchased', supporter.email, supporter.name, {
-        package_type: supporter.package_type,
-        amount: supporter.amount_cents / 100,
-        name: supporter.name,
-      });
+      if (wasRejected) {
+        await this.notificationService.sendKlaviyoEvent('Photo Rejected', supporter.email, supporter.name, {
+          name: supporter.name,
+          package_type: supporter.package_type,
+          amount_dollars: supporter.amount_cents / 100,
+          amount_cents: supporter.amount_cents,
+          rejection_reason: supporter.moderation_reason || 'Content policy violation',
+          reupload_url: `${process.env.FRONTEND_URL || 'http://localhost:8080'}/reupload/${supporter.id}`,
+          cumulative_customer_value_dollars: cumulativeCents / 100,
+          cumulative_customer_value_cents: cumulativeCents,
+          photo_purchase_count: cs?.photo_purchase_count || 1,
+          merch_purchase_count: cs?.merch_purchase_count || 0,
+          prize_entries: cs?.grand_prize_entries || 0,
+        });
+      } else {
+        await this.notificationService.sendKlaviyoEvent('Photo Purchased', supporter.email, supporter.name, {
+          name: supporter.name,
+          package_type: supporter.package_type,
+          amount_dollars: supporter.amount_cents / 100,
+          amount_cents: supporter.amount_cents,
+          display_duration_seconds: supporter.display_duration_seconds,
+          has_badge: supporter.package_type === 'premium',
+          queue_position: eta?.queue_position ?? null,
+          items_ahead: eta?.items_ahead ?? null,
+          estimated_display_seconds: eta?.estimated_seconds ?? null,
+          estimated_display_at: eta?.estimated_display_at?.toISOString() ?? null,
+          cumulative_customer_value_dollars: cumulativeCents / 100,
+          cumulative_customer_value_cents: cumulativeCents,
+          photo_purchase_count: cs?.photo_purchase_count || 1,
+          merch_purchase_count: cs?.merch_purchase_count || 0,
+          prize_entries: cs?.grand_prize_entries || 0,
+        });
+      }
     } catch (e) { this.logger.warn('Klaviyo event failed', e); }
 
+    // Resend email
     try {
-      await this.notificationService.sendTemplateEmail('photo_purchased', supporter.email, supporter.name, {
-        name: supporter.name,
-        package_type: supporter.package_type,
-        amount: `$${(supporter.amount_cents / 100).toFixed(2)}`,
-      });
+      if (wasRejected) {
+        await this.notificationService.sendTemplateEmail('photo_rejected', supporter.email, supporter.name, {
+          name: supporter.name,
+          reason: supporter.moderation_reason || 'Content policy violation',
+          reupload_url: `${process.env.FRONTEND_URL || 'http://localhost:8080'}/reupload/${supporter.id}`,
+        });
+      } else {
+        await this.notificationService.sendTemplateEmail('photo_purchased', supporter.email, supporter.name, {
+          name: supporter.name,
+          package_type: supporter.package_type,
+          amount: `$${(supporter.amount_cents / 100).toFixed(2)}`,
+          estimated_display_at: eta?.estimated_display_at
+            ? new Date(eta.estimated_display_at).toLocaleString()
+            : 'shortly',
+        });
+      }
     } catch (e) { this.logger.warn('Email failed', e); }
   }
 
@@ -172,10 +197,32 @@ export class StripeWebhookService {
       order.customer_email, order.total_cents, false, order.id,
     );
 
+    // Compute full metadata
+    const cs = await this.fundraisingService.getCustomerStatsByEmail(order.customer_email);
+    const cumulativeCents = cs ? Number(cs.total_spent_cents) : order.total_cents;
+
+    // Pull order items with merchandise for product names
+    const items = await this.orderItemRepo.find({
+      where: { order_id: order.id },
+      relations: ['merchandise'],
+    });
+    const productNames = items.map((i) => i.merchandise?.name).filter(Boolean);
+    const itemCount = items.reduce((sum, i) => sum + (i.quantity || 0), 0);
+
     try {
       await this.notificationService.sendKlaviyoEvent('Merchandise Purchased', order.customer_email, order.customer_name, {
         order_number: order.order_number,
-        amount: order.total_cents / 100,
+        amount_dollars: order.total_cents / 100,
+        amount_cents: order.total_cents,
+        subtotal_cents: order.subtotal_cents,
+        shipping_cents: order.shipping_cents,
+        item_count: itemCount,
+        product_names: productNames,
+        cumulative_customer_value_dollars: cumulativeCents / 100,
+        cumulative_customer_value_cents: cumulativeCents,
+        photo_purchase_count: cs?.photo_purchase_count || 0,
+        merch_purchase_count: cs?.merch_purchase_count || 1,
+        prize_entries: cs?.grand_prize_entries || 0,
       });
     } catch (e) { this.logger.warn('Klaviyo event failed', e); }
 

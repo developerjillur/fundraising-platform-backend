@@ -77,9 +77,10 @@ const Support = () => {
       "Photo displayed on live stream",
       `${pkg.display_duration_seconds} second display time`,
       "Name shown on stream",
+      "Keepsake screenshot emailed to you",
     ];
     if (pkg.has_badge) {
-      features.splice(2, 0, "Premium badge overlay", "Priority queue position");
+      features.splice(2, 0, "Gold premium badge overlay", "Priority queue position");
     }
     return features;
   };
@@ -216,21 +217,30 @@ const Support = () => {
         </motion.div>
 
         {/* Package selection */}
-        <div className="grid md:grid-cols-2 gap-6 mb-10">
+        <div
+          className="grid md:grid-cols-2 gap-6 mb-10"
+          role="radiogroup"
+          aria-label="Photo package"
+        >
           {packages.map((pkg) => {
             const key = pkg.slug as Package;
             const features = getPackageFeatures(pkg);
             const price = (pkg.price_cents / 100).toFixed(0);
             const isPremium = key === "premium";
+            const isSelected = selectedPackage === key;
             return (
               <motion.button
                 key={key}
+                type="button"
+                role="radio"
+                aria-checked={isSelected}
+                aria-label={`${pkg.name} package, $${price}, ${pkg.display_duration_seconds} seconds display${pkg.has_badge ? ", with premium badge" : ""}`}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 onClick={() => setSelectedPackage(key)}
-                className={`relative text-left p-6 rounded-2xl border-2 transition-all ${
-                  selectedPackage === key
+                className={`relative text-left p-6 rounded-2xl border-2 transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background ${
+                  isSelected
                     ? isPremium
                       ? "border-primary bg-primary/5 glow-gold"
                       : "border-accent bg-accent/5 glow-red"
@@ -239,7 +249,7 @@ const Support = () => {
               >
                 {pkg.has_badge && (
                   <div className="absolute -top-3 left-6 bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 font-display tracking-wider">
-                    <Crown size={12} /> MOST POPULAR
+                    <Crown size={12} aria-hidden="true" /> MOST POPULAR
                   </div>
                 )}
                 <div className="flex items-start justify-between mb-4">

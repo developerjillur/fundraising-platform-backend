@@ -78,7 +78,7 @@ const Footer = ({ footerText, socialTwitter, socialInstagram, contactEmail }: Fo
                 <a href="#livestream" className="block hover:text-primary transition-colors">Live Stream</a>
                 <a href="#support" className="block hover:text-primary transition-colors">Support</a>
                 <a href="#merch" className="block hover:text-primary transition-colors">Merch</a>
-                <a href="#faq" className="block hover:text-primary transition-colors">FAQ</a>
+                <a href="/faq" className="block hover:text-primary transition-colors">FAQ</a>
               </div>
             </div>
 

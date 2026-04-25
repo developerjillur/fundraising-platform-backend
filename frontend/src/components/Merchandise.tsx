@@ -183,37 +183,92 @@ const Merchandise = () => {
 
         {/* Cart */}
         {totalItems > 0 && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-2xl p-6 max-w-md mx-auto">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-2xl p-6 max-w-md mx-auto" aria-labelledby="cart-heading">
             <div className="flex items-center justify-center gap-2 mb-3">
-              <ShoppingCart className="text-primary" size={20} />
-              <span className="font-semibold text-foreground">{totalItems} item{totalItems > 1 ? "s" : ""}</span>
+              <ShoppingCart className="text-primary" size={20} aria-hidden="true" />
+              <span id="cart-heading" className="font-semibold text-foreground">Your cart — {totalItems} item{totalItems > 1 ? "s" : ""}</span>
             </div>
-            <p className="font-mono-num text-3xl font-bold text-primary mb-4 text-center">${totalPrice.toFixed(2)}</p>
+
+            {/* Line items breakdown */}
+            <ul className="space-y-2 mb-4 border-y border-border/50 py-3">
+              {cart.map((c) => {
+                const product = products.find((p) => p.id === c.id);
+                if (!product) return null;
+                const lineTotal = ((product.price_cents || 0) / 100) * c.quantity;
+                return (
+                  <li key={c.id} className="flex items-center justify-between text-sm">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-foreground truncate">{product.name}{c.size ? ` — ${c.size}` : ""}</p>
+                      <p className="text-xs text-muted-foreground">Qty {c.quantity} × ${(product.price_cents / 100).toFixed(2)}</p>
+                    </div>
+                    <span className="font-mono-num text-foreground tabular-nums">${lineTotal.toFixed(2)}</span>
+                  </li>
+                );
+              })}
+            </ul>
+
+            <div className="flex items-center justify-between mb-1 text-sm text-muted-foreground">
+              <span>Subtotal</span>
+              <span className="font-mono-num tabular-nums">${totalPrice.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between mb-4 text-xs text-muted-foreground">
+              <span>Shipping</span>
+              <span>Calculated at checkout</span>
+            </div>
 
             {showShipping && (
               <div className="space-y-3 mb-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                  <MapPin size={14} className="text-primary" />
+                  <MapPin size={14} className="text-primary" aria-hidden="true" />
                   <span className="font-medium text-foreground">Your Details & Shipping</span>
                 </div>
-                <input type="text" placeholder="Full Name *" value={customerName} onChange={e => setCustomerName(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
-                <input type="email" placeholder="Email Address *" value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
-                <input type="text" placeholder="Address Line 1 *" value={shipping.line1} onChange={e => setShipping(s => ({ ...s, line1: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
-                <input type="text" placeholder="Address Line 2" value={shipping.line2} onChange={e => setShipping(s => ({ ...s, line2: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
+                <label className="block">
+                  <span className="sr-only">Full name</span>
+                  <input type="text" required autoComplete="name" placeholder="Full Name *" value={customerName} onChange={e => setCustomerName(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
+                </label>
+                <label className="block">
+                  <span className="sr-only">Email address</span>
+                  <input type="email" required autoComplete="email" placeholder="Email Address *" value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
+                </label>
+                <label className="block">
+                  <span className="sr-only">Address line 1</span>
+                  <input type="text" required autoComplete="address-line1" placeholder="Address Line 1 *" value={shipping.line1} onChange={e => setShipping(s => ({ ...s, line1: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
+                </label>
+                <label className="block">
+                  <span className="sr-only">Address line 2 (optional)</span>
+                  <input type="text" autoComplete="address-line2" placeholder="Address Line 2" value={shipping.line2} onChange={e => setShipping(s => ({ ...s, line2: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
+                </label>
                 <div className="grid grid-cols-2 gap-3">
-                  <input type="text" placeholder="City *" value={shipping.city} onChange={e => setShipping(s => ({ ...s, city: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
-                  <input type="text" placeholder="State/Province" value={shipping.state} onChange={e => setShipping(s => ({ ...s, state: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
+                  <label className="block">
+                    <span className="sr-only">City</span>
+                    <input type="text" required autoComplete="address-level2" placeholder="City *" value={shipping.city} onChange={e => setShipping(s => ({ ...s, city: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
+                  </label>
+                  <label className="block">
+                    <span className="sr-only">State or province</span>
+                    <input type="text" autoComplete="address-level1" placeholder="State/Province" value={shipping.state} onChange={e => setShipping(s => ({ ...s, state: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
+                  </label>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <input type="text" placeholder="Postal Code *" value={shipping.postal_code} onChange={e => setShipping(s => ({ ...s, postal_code: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
-                  <input type="text" placeholder="Country *" value={shipping.country} onChange={e => setShipping(s => ({ ...s, country: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
+                  <label className="block">
+                    <span className="sr-only">Postal code</span>
+                    <input type="text" required autoComplete="postal-code" placeholder="Postal Code *" value={shipping.postal_code} onChange={e => setShipping(s => ({ ...s, postal_code: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
+                  </label>
+                  <label className="block">
+                    <span className="sr-only">Country</span>
+                    <input type="text" required autoComplete="country-name" placeholder="Country *" value={shipping.country} onChange={e => setShipping(s => ({ ...s, country: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
+                  </label>
                 </div>
               </div>
             )}
 
-            <button onClick={handleCheckout} disabled={checkingOut} className="w-full btn-red !rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
-              {checkingOut ? <><Loader2 size={18} className="animate-spin" /> Processing...</> : showShipping ? "Checkout with Stripe →" : "Continue to Shipping →"}
+            <button type="button" onClick={handleCheckout} disabled={checkingOut} className="w-full btn-red !rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+              {checkingOut && <><Loader2 size={18} className="animate-spin" aria-hidden="true" /> Processing...</>}
+              {!checkingOut && showShipping && "Checkout with Stripe →"}
+              {!checkingOut && !showShipping && "Continue to Shipping →"}
             </button>
+            <p className="text-center text-xs text-muted-foreground mt-3">
+              Fulfilled by Printful • Tracked shipping • 2-7 business days
+            </p>
           </motion.div>
         )}
       </div>

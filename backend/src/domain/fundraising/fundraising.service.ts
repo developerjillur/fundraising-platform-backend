@@ -122,6 +122,10 @@ export class FundraisingService {
     });
   }
 
+  async getCustomerStatsByEmail(email: string): Promise<CustomerStats | null> {
+    return this.customerStatsRepo.findOne({ where: { email } });
+  }
+
   async getPrizeEntries(limit = 100) {
     return this.prizeRepo.find({
       order: { created_at: 'DESC' },

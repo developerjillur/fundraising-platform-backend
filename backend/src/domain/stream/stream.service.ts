@@ -1,14 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { OnEvent } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { StreamQueue } from './stream-queue.entity';
 import { StreamEvent } from './stream-event.entity';
 import { Supporter } from '../fundraising/supporter.entity';
 import { SettingsService } from '../settings/settings.service';
 import { PhotoService } from '../photo/photo.service';
 import { BadgeService } from '../badge/badge.service';
+import { NotificationService } from '../notification/notification.service';
+import { FundraisingService } from '../fundraising/fundraising.service';
 
 @Injectable()
 export class StreamService {
@@ -21,6 +22,9 @@ export class StreamService {
     private settingsService: SettingsService,
     private photoService: PhotoService,
     private badgeService: BadgeService,
+    private notificationService: NotificationService,
+    @Inject(forwardRef(() => FundraisingService))
+    private fundraisingService: FundraisingService,
     private dataSource: DataSource,
     private eventEmitter: EventEmitter2,
   ) {}
@@ -175,6 +179,37 @@ export class StreamService {
     }
 
     this.eventEmitter.emit('queue.updated');
+
+    // Fire Photo Displayed event (Klaviyo + email) — best effort
+    if (item.supporter) {
+      const cs = await this.fundraisingService.getCustomerStatsByEmail(item.supporter.email).catch(() => null);
+      const cumulativeCents = cs ? Number(cs.total_spent_cents) : (item.supporter.amount_cents || 0);
+
+      const screenSeconds = item.display_started_at && item.display_ended_at
+        ? Math.round((item.display_ended_at.getTime() - item.display_started_at.getTime()) / 1000)
+        : item.display_duration_seconds;
+
+      this.notificationService.sendKlaviyoEvent('Photo Displayed', item.supporter.email, item.supporter.name, {
+        name: item.supporter.name,
+        package_type: item.package_type,
+        display_duration_seconds: item.display_duration_seconds,
+        screen_seconds: screenSeconds,
+        has_badge: item.has_badge,
+        screenshot_url: screenshotUrl || item.screenshot_url || null,
+        displayed_at: (item.display_ended_at || new Date()).toISOString(),
+        cumulative_customer_value_dollars: cumulativeCents / 100,
+        cumulative_customer_value_cents: cumulativeCents,
+        photo_purchase_count: cs?.photo_purchase_count || 1,
+        merch_purchase_count: cs?.merch_purchase_count || 0,
+        prize_entries: cs?.grand_prize_entries || 0,
+      }).catch((e) => this.logger.warn('Klaviyo Photo Displayed failed', e));
+
+      this.notificationService.sendTemplateEmail('photo_displayed', item.supporter.email, item.supporter.name, {
+        name: item.supporter.name,
+        screenshot_url: screenshotUrl || item.screenshot_url || '',
+      }).catch((e) => this.logger.warn('Photo Displayed email failed', e));
+    }
+
     return { success: true };
   }
 

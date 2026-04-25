@@ -15,15 +15,27 @@ const FAQS = [
   },
   {
     q: "What happens to my photo?",
-    a: "After your payment is confirmed, your photo enters a queue. When it's your turn, your photo is displayed on the YouTube live stream for everyone to see. Standard package gives you 10 seconds, Premium gives you 30 seconds with a special gold badge overlay.",
+    a: "After your payment is confirmed, your photo enters a queue. When it's your turn, your photo is displayed on the YouTube live stream for everyone to see. Standard package gives you 10 seconds, Premium gives you 30 seconds with a special gold premium badge overlay.",
   },
   {
     q: "How long until my photo is shown?",
-    a: "After purchasing, you'll see an estimated display time on the confirmation page. You'll also receive an email notification when your photo is displayed, including a screenshot of it on the live stream.",
+    a: "After purchasing, you'll see an estimated display time based on your queue position. You can check your status anytime using the email confirmation link. When your photo airs, you'll get an email with a keepsake screenshot from the live stream.",
   },
   {
     q: "What photos are allowed?",
-    a: "All photos go through an AI content moderation system. Explicit, violent, or inappropriate content will be automatically rejected and refunded. Keep it fun and family-friendly!",
+    a: "All photos go through automatic content moderation (AWS Rekognition) that screens for explicit, violent, or otherwise inappropriate content. Keep it fun and family-friendly!",
+  },
+  {
+    q: "What if my photo is rejected?",
+    a: "If moderation flags your photo, you'll receive an email with a re-upload link. Your payment stays valid — just upload a different photo and you're back in the queue. You can re-upload up to 3 times.",
+  },
+  {
+    q: "Will I get a copy of my moment on stream?",
+    a: "Yes! Once your photo airs, we automatically capture a screenshot from the live stream and email it to you as a keepsake. Premium supporters get the gold badge baked into their screenshot.",
+  },
+  {
+    q: "What's the difference between Standard and Premium?",
+    a: "Standard ($10) shows your photo for 10 seconds. Premium ($25) shows it for 30 seconds with a gold PREMIUM SUPPORTER badge overlay on the stream and on your keepsake screenshot. Premium also gives you priority placement in the queue and more grand prize entries.",
   },
   {
     q: "Where does the money go?",
@@ -31,11 +43,27 @@ const FAQS = [
   },
   {
     q: "Can I really win the grand prize?",
-    a: "Yes! Every $10 spent gives you an entry into the grand prize draw. Premium photo purchases ($25) give you 3 entries. Any merch purchase gives you 1 entry. The winner will be drawn live on stream.",
+    a: "Yes! Every $10 spent gives you an entry into the grand prize draw. Premium photo purchases ($25) give you 2-3 entries. Merch purchases give you entries based on order value. The winner will be drawn live on stream.",
+  },
+  {
+    q: "How does merchandise shipping work?",
+    a: "Merch is fulfilled by Printful — they print and ship every order on demand directly to you. Most items ship within 2-7 business days. You'll get a tracking link by email once your order is on the way.",
+  },
+  {
+    q: "Can I track my merch order?",
+    a: "Yes — visit our Track Order page and enter your email or order number. You'll see live status from order placed through to delivery, plus a tracking link once it ships.",
   },
   {
     q: "Do I need to create an account?",
-    a: "Nope! The entire process is frictionless. Just provide your name, email, upload a photo, pay, and you're done. No accounts, no passwords.",
+    a: "Nope! The entire process is frictionless. Just provide your name, email, upload a photo (or pick merch), pay, and you're done. No accounts, no passwords.",
+  },
+  {
+    q: "Is my payment information safe?",
+    a: "Yes. All payments are processed by Stripe — we never see or store your card details. Stripe is PCI-DSS compliant and used by millions of businesses worldwide.",
+  },
+  {
+    q: "Can I get a refund?",
+    a: "Photo purchases are non-refundable once your photo enters the queue. If you have a question about an order or want to report an issue, email hello@lastmcdonaldsburger.com.",
   },
 ];
 
