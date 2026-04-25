@@ -30,24 +30,40 @@ echo "=== Burger CloudWatch monitoring setup ==="
 echo "Profile: $PROFILE  Region: $REGION  Email: $ALERT_EMAIL"
 echo
 
-# ----- 1. SNS topic for alerts -----
+# ----- 1. SNS topic for alerts (best-effort; gracefully skip if no permissions) -----
 echo "[1/5] SNS topic..."
-TOPIC_ARN=$(aws sns create-topic \
-  --name "$TOPIC_NAME" \
-  --tags Key=Project,Value=burger Key=Environment,Value=prod \
-  --query 'TopicArn' --output text)
-echo "  Topic: $TOPIC_ARN"
-
-# Subscribe email if not already subscribed
-SUB=$(aws sns list-subscriptions-by-topic --topic-arn "$TOPIC_ARN" \
-  --query "Subscriptions[?Endpoint=='$ALERT_EMAIL'].SubscriptionArn" --output text)
-if [ -z "$SUB" ] || [ "$SUB" = "None" ]; then
-  aws sns subscribe --topic-arn "$TOPIC_ARN" --protocol email --notification-endpoint "$ALERT_EMAIL" \
-    --query 'SubscriptionArn' --output text > /dev/null
-  echo "  Subscribed $ALERT_EMAIL — check inbox to confirm"
+TOPIC_ARN=""
+if TOPIC_ARN=$(aws sns create-topic --name "$TOPIC_NAME" --query 'TopicArn' --output text 2>/dev/null); then
+  echo "  Topic: $TOPIC_ARN"
+  aws sns tag-resource --resource-arn "$TOPIC_ARN" \
+    --tags Key=Project,Value=burger Key=Environment,Value=prod 2>/dev/null || true
+  SUB=$(aws sns list-subscriptions-by-topic --topic-arn "$TOPIC_ARN" \
+    --query "Subscriptions[?Endpoint=='$ALERT_EMAIL'].SubscriptionArn" --output text 2>/dev/null || echo "")
+  if [ -z "$SUB" ] || [ "$SUB" = "None" ]; then
+    aws sns subscribe --topic-arn "$TOPIC_ARN" --protocol email \
+      --notification-endpoint "$ALERT_EMAIL" --query 'SubscriptionArn' --output text > /dev/null 2>&1 \
+      && echo "  Subscribed $ALERT_EMAIL — check inbox to confirm" \
+      || echo "  Couldn't subscribe (insufficient SNS perms)"
+  else
+    echo "  Already subscribed: $ALERT_EMAIL"
+  fi
 else
-  echo "  Already subscribed: $ALERT_EMAIL"
+  echo "  WARN: SNS access denied — alarms will be created without notification actions."
+  echo "        Add SNS permissions and re-run to wire up email/SMS alerts."
+  TOPIC_ARN=""
 fi
+
+# Helper: emit --alarm-actions / --ok-actions only when we have a topic
+alarm_actions() {
+  if [ -n "$TOPIC_ARN" ]; then
+    echo "--alarm-actions $TOPIC_ARN --ok-actions $TOPIC_ARN"
+  fi
+}
+alarm_action_only() {
+  if [ -n "$TOPIC_ARN" ]; then
+    echo "--alarm-actions $TOPIC_ARN"
+  fi
+}
 
 # ----- 2. Log metric filters (errors / unhandled exceptions) -----
 echo "[2/5] Log metric filters..."
@@ -90,7 +106,7 @@ aws cloudwatch put-metric-alarm \
   --statistic Average --period 300 --evaluation-periods 2 \
   --threshold 80 --comparison-operator GreaterThanThreshold \
   --dimensions Name=ClusterName,Value="$CLUSTER" Name=ServiceName,Value="$BACKEND_SERVICE" \
-  --alarm-actions "$TOPIC_ARN" --ok-actions "$TOPIC_ARN" \
+  $(alarm_actions) \
   --treat-missing-data notBreaching \
   --tags Key=Project,Value=burger Key=Environment,Value=prod
 echo "  burger-backend-high-cpu"
@@ -103,7 +119,7 @@ aws cloudwatch put-metric-alarm \
   --statistic Average --period 300 --evaluation-periods 2 \
   --threshold 85 --comparison-operator GreaterThanThreshold \
   --dimensions Name=ClusterName,Value="$CLUSTER" Name=ServiceName,Value="$BACKEND_SERVICE" \
-  --alarm-actions "$TOPIC_ARN" --ok-actions "$TOPIC_ARN" \
+  $(alarm_actions) \
   --treat-missing-data notBreaching \
   --tags Key=Project,Value=burger Key=Environment,Value=prod
 echo "  burger-backend-high-memory"
@@ -116,7 +132,7 @@ aws cloudwatch put-metric-alarm \
   --statistic Average --period 60 --evaluation-periods 2 \
   --threshold 1 --comparison-operator LessThanThreshold \
   --dimensions Name=ClusterName,Value="$CLUSTER" Name=ServiceName,Value="$BACKEND_SERVICE" \
-  --alarm-actions "$TOPIC_ARN" \
+  $(alarm_action_only) \
   --treat-missing-data breaching \
   --tags Key=Project,Value=burger Key=Environment,Value=prod
 echo "  burger-backend-running-count-zero"
@@ -133,7 +149,7 @@ if [ -n "$ALB_ARN" ] && [ "$ALB_ARN" != "None" ]; then
     --statistic Sum --period 60 --evaluation-periods 3 \
     --threshold 10 --comparison-operator GreaterThanThreshold \
     --dimensions Name=LoadBalancer,Value="$ALB_DIM_NAME" \
-    --alarm-actions "$TOPIC_ARN" --ok-actions "$TOPIC_ARN" \
+    $(alarm_actions) \
     --treat-missing-data notBreaching \
     --tags Key=Project,Value=burger Key=Environment,Value=prod
   echo "  burger-alb-5xx-surge"
@@ -150,7 +166,7 @@ if [ -n "$ALB_ARN" ] && [ "$ALB_ARN" != "None" ]; then
       --statistic Maximum --period 60 --evaluation-periods 2 \
       --threshold 0 --comparison-operator GreaterThanThreshold \
       --dimensions Name=TargetGroup,Value="$TG_DIM" Name=LoadBalancer,Value="$ALB_DIM_NAME" \
-      --alarm-actions "$TOPIC_ARN" --ok-actions "$TOPIC_ARN" \
+      $(alarm_actions) \
       --treat-missing-data notBreaching \
       --tags Key=Project,Value=burger Key=Environment,Value=prod
     echo "  burger-target-unhealthy"
@@ -164,7 +180,7 @@ aws cloudwatch put-metric-alarm \
   --metric-name BackendErrorCount --namespace Burger/Backend \
   --statistic Sum --period 300 --evaluation-periods 1 \
   --threshold 20 --comparison-operator GreaterThanThreshold \
-  --alarm-actions "$TOPIC_ARN" --ok-actions "$TOPIC_ARN" \
+  $(alarm_actions) \
   --treat-missing-data notBreaching \
   --tags Key=Project,Value=burger Key=Environment,Value=prod
 echo "  burger-backend-error-log-spike"
@@ -176,7 +192,7 @@ aws cloudwatch put-metric-alarm \
   --metric-name StripeWebhookFailureCount --namespace Burger/Backend \
   --statistic Sum --period 300 --evaluation-periods 1 \
   --threshold 3 --comparison-operator GreaterThanThreshold \
-  --alarm-actions "$TOPIC_ARN" \
+  $(alarm_action_only) \
   --treat-missing-data notBreaching \
   --tags Key=Project,Value=burger Key=Environment,Value=prod
 echo "  burger-stripe-webhook-failures"
@@ -189,7 +205,7 @@ aws cloudwatch put-metric-alarm \
   --statistic Average --period 300 --evaluation-periods 2 \
   --threshold 80 --comparison-operator GreaterThanThreshold \
   --dimensions Name=DBInstanceIdentifier,Value="$RDS_INSTANCE" \
-  --alarm-actions "$TOPIC_ARN" --ok-actions "$TOPIC_ARN" \
+  $(alarm_actions) \
   --treat-missing-data notBreaching \
   --tags Key=Project,Value=burger Key=Environment,Value=prod 2>/dev/null || echo "  (skipped — RDS instance not found)"
 echo "  burger-rds-high-cpu"
@@ -202,7 +218,7 @@ aws cloudwatch put-metric-alarm \
   --statistic Average --period 300 --evaluation-periods 1 \
   --threshold 2147483648 --comparison-operator LessThanThreshold \
   --dimensions Name=DBInstanceIdentifier,Value="$RDS_INSTANCE" \
-  --alarm-actions "$TOPIC_ARN" --ok-actions "$TOPIC_ARN" \
+  $(alarm_actions) \
   --treat-missing-data notBreaching \
   --tags Key=Project,Value=burger Key=Environment,Value=prod 2>/dev/null || echo "  (skipped — RDS instance not found)"
 echo "  burger-rds-low-storage"
