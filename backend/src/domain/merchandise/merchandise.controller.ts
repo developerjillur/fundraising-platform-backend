@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Headers, Req } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiBody, ApiParam } from '@nestjs/swagger';
 import { MerchandiseService } from './merchandise.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -54,19 +54,25 @@ export class MerchandiseController {
   @Post('webhooks/printful')
   @ApiOperation({ summary: 'Handle Printful webhook events' })
   @ApiBody({
-    description: 'Printful webhook payload',
+    description: 'Printful webhook payload (package_shipped, order_failed, order_canceled, order_updated, order_put_hold, order_remove_hold, package_returned)',
     schema: {
       type: 'object',
       properties: {
         type: { type: 'string', description: 'Webhook event type' },
-        data: { type: 'object', description: 'Event data payload' },
+        data: { type: 'object', description: 'Event data payload (typically contains order and shipment objects)' },
       },
     },
   })
-  @ApiResponse({ status: 201, description: 'Webhook received and acknowledged.' })
-  handlePrintfulWebhook(@Body() body: any) {
-    // Handle Printful webhook events
-    return { received: true };
+  @ApiResponse({ status: 201, description: 'Webhook received and processed.' })
+  @ApiResponse({ status: 400, description: 'Invalid signature.' })
+  async handlePrintfulWebhook(
+    @Body() body: any,
+    @Headers('x-pf-webhook-signature') signature: string,
+    @Req() req: any,
+  ) {
+    // NestJS exposes the raw body (enabled via main.ts rawBody:true) on req.rawBody
+    const rawBody = req?.rawBody || JSON.stringify(body);
+    return this.merchService.processPrintfulWebhook(body, rawBody, signature || null);
   }
 
   @UseGuards(JwtAuthGuard)

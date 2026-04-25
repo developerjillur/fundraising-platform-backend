@@ -82,6 +82,8 @@ async function seed() {
     ['obs_poll_interval_ms', '3000', 'stream', 'How often OBS service polls for next queue item (ms)'],
     ['obs_transition_type', 'fade', 'stream', 'OBS scene transition type (fade, cut, slide)'],
     ['obs_transition_duration_ms', '500', 'stream', 'OBS transition duration in milliseconds'],
+    ['printful_auto_confirm', 'false', 'integrations', 'Auto-confirm Printful orders on creation (false = manual review in Printful dashboard)'],
+    ['printful_webhook_secret', '', 'integrations', 'Optional shared secret for Printful webhook signature verification'],
   ];
   for (const [key, value, category, description] of m2Settings) {
     const exists = await qr.query('SELECT COUNT(*) as c FROM site_settings WHERE `key` = ?', [key]);
@@ -134,10 +136,10 @@ async function seed() {
       {
         key: 'merch_shipped',
         name: 'Order Shipped',
-        subject: 'Your order has shipped! 📦',
-        body_html: '<h1>{{name}}, your order is on its way!</h1><p>Track: {{tracking_url}}</p>',
+        subject: 'Your order {{order_number}} has shipped! 📦',
+        body_html: '<h1>{{name}}, your order is on its way!</h1><p>Order <strong>{{order_number}}</strong> just shipped from our fulfillment partner.</p><p>Tracking number: <strong>{{tracking_number}}</strong></p><p><a href="{{tracking_url}}">Track your package →</a></p>',
         category: 'fulfillment',
-        variables: JSON.stringify(['name', 'order_number', 'tracking_url']),
+        variables: JSON.stringify(['name', 'order_number', 'tracking_number', 'tracking_url']),
       },
       {
         key: 'payment_failed',

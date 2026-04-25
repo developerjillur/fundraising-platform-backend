@@ -10,6 +10,7 @@ import { NotificationService } from '../notification/notification.service';
 import { SettingsService } from '../settings/settings.service';
 import { StreamService } from '../stream/stream.service';
 import { OrderItem } from '../merchandise/order-item.entity';
+import { MerchandiseService } from '../merchandise/merchandise.service';
 
 @Injectable()
 export class StripeWebhookService {
@@ -24,6 +25,7 @@ export class StripeWebhookService {
     private notificationService: NotificationService,
     private settingsService: SettingsService,
     private streamService: StreamService,
+    private merchandiseService: MerchandiseService,
     private dataSource: DataSource,
   ) {}
 
@@ -233,6 +235,16 @@ export class StripeWebhookService {
         amount: `$${(order.total_cents / 100).toFixed(2)}`,
       });
     } catch (e) { this.logger.warn('Email failed', e); }
+
+    // Push to Printful for fulfillment (best-effort — don't fail the webhook if Printful is down)
+    try {
+      const result = await this.merchandiseService.createPrintfulOrder(order.id);
+      if (!result.success) {
+        this.logger.warn(`Printful order create skipped for ${order.order_number}: ${result.error}`);
+      }
+    } catch (e) {
+      this.logger.error(`Printful order create exception for ${order.order_number}`, e);
+    }
   }
 
   private async handlePaymentFailed(pi: Stripe.PaymentIntent) {

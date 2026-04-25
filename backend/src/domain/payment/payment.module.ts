@@ -12,6 +12,7 @@ import { StripeWebhookService } from './stripe-webhook.service';
 import { FundraisingModule } from '../fundraising/fundraising.module';
 import { NotificationModule } from '../notification/notification.module';
 import { StreamModule } from '../stream/stream.module';
+import { MerchandiseModule } from '../merchandise/merchandise.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { StreamModule } from '../stream/stream.module';
     FundraisingModule,
     NotificationModule,
     StreamModule,
+    MerchandiseModule,
   ],
   controllers: [PaymentController],
   providers: [PaymentService, StripeWebhookService],
